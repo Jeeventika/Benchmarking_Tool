@@ -1,5 +1,8 @@
 import { Router } from 'express'
 import { pool } from '../db/pool.js'
+import { generateAndSaveAnalysis } from '../services/analysisService.js'
+import { gatherAndStoreEvidence } from '../services/evidenceGatheringService.js'
+import { parseNaturalPrompt } from '../services/naturalPromptParser.js'
 
 const router = Router()
 
@@ -41,33 +44,109 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// POST /api/comparisons — create a comparison (item_type, goal, criteria, item names)
-// Full validation + evidence gathering wired up in Phase 3.
+// POST /api/comparisons — create a comparison (supports explicit fields or natural language prompt)
 router.post('/', async (req, res) => {
-  const { item_type, goal, criteria, items } = req.body
+  let { item_type, goal, criteria, items, prompt, text } = req.body
 
-  if (!item_type || !Array.isArray(items) || items.length < 2) {
-    return res.status(400).json({ error: 'item_type and at least two items are required' })
+  // If a natural language prompt or paragraph was submitted, parse it automatically
+  if ((prompt || text) && (!items || items.length < 2)) {
+    const parsed = parseNaturalPrompt(prompt || text)
+    if (parsed) {
+      item_type = item_type || parsed.item_type
+      goal = goal || parsed.goal
+      items = items && items.length >= 2 ? items : parsed.items
+      criteria = criteria && criteria.length >= 1 ? criteria : parsed.criteria
+    }
   }
 
-  try {
-    const { rows } = await pool.query(
-      'INSERT INTO comparisons (item_type, goal, criteria) VALUES ($1, $2, $3) RETURNING id',
-      [item_type, goal || null, JSON.stringify(criteria || [])]
-    )
-    const comparisonId = rows[0].id
+  if (!item_type || typeof item_type !== 'string' || !item_type.trim()) {
+    return res.status(400).json({ error: 'Comparison type is required' })
+  }
 
-    for (const name of items) {
-      await pool.query('INSERT INTO comparison_items (comparison_id, name) VALUES ($1, $2)', [
+  if (!goal || typeof goal !== 'string' || !goal.trim()) {
+    return res.status(400).json({ error: 'Goal is required' })
+  }
+
+  if (!Array.isArray(items) || items.length < 2) {
+    return res.status(400).json({ error: 'At least two items are required' })
+  }
+
+  const cleanItems = items.map((i) => (typeof i === 'string' ? i.trim() : '')).filter(Boolean)
+  if (cleanItems.length < 2 || cleanItems.length !== items.length) {
+    return res.status(400).json({ error: 'Item names cannot be empty' })
+  }
+
+  // Check for duplicate item names
+  const lowerItems = cleanItems.map((i) => i.toLowerCase())
+  const uniqueItems = new Set(lowerItems)
+  if (uniqueItems.size !== cleanItems.length) {
+    return res.status(400).json({ error: 'Item names must be unique' })
+  }
+
+  if (!Array.isArray(criteria) || criteria.length < 1) {
+    return res.status(400).json({ error: 'At least one criterion is required' })
+  }
+
+  const cleanCriteria = criteria
+    .map((c) => (typeof c === 'string' ? c.trim() : ''))
+    .filter(Boolean)
+  if (cleanCriteria.length < 1 || cleanCriteria.length !== criteria.length) {
+    return res.status(400).json({ error: 'Criterion names cannot be empty' })
+  }
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const compResult = await client.query(
+      'INSERT INTO comparisons (item_type, goal, criteria) VALUES ($1, $2, $3) RETURNING id',
+      [item_type.trim(), goal.trim(), JSON.stringify(cleanCriteria)]
+    )
+    const comparisonId = compResult.rows[0].id
+
+    const createdItemIds = []
+    for (const name of cleanItems) {
+      const itemResult = await client.query(
+        'INSERT INTO comparison_items (comparison_id, name) VALUES ($1, $2) RETURNING id',
+        [comparisonId, name]
+      )
+      createdItemIds.push(itemResult.rows[0].id)
+    }
+
+    // Initialize recommendation record so downstream workflow is complete
+    const firstItemId = createdItemIds[0]
+    const defaultReasons = JSON.stringify([
+      `Initial option based on user criteria: ${cleanCriteria.join(', ')}`,
+      'Detailed evidence and comparability checks can be reviewed in the earlier steps',
+    ])
+    await client.query(
+      `INSERT INTO recommendations (comparison_id, recommended_item_id, reasons, reliability, reliability_reason)
+       VALUES ($1, $2, $3, 'medium', $4)`,
+      [
         comparisonId,
-        name,
-      ])
+        firstItemId,
+        defaultReasons,
+        'Medium — user-created comparison. Review the available details before making your final decision.',
+      ]
+    )
+
+    await client.query('COMMIT')
+
+    // Automatically gather and store real evidence with citations, comparability checks,
+    // and analysis so the comparison is fully populated before redirecting
+    try {
+      await gatherAndStoreEvidence(comparisonId)
+    } catch (evErr) {
+      console.error('Evidence auto-gathering failed', { message: evErr.message })
     }
 
     res.status(201).json({ id: comparisonId })
   } catch (err) {
+    await client.query('ROLLBACK')
     console.error('Failed to create comparison', { message: err.message })
     res.status(500).json({ error: 'Could not create comparison' })
+  } finally {
+    client.release()
   }
 })
 

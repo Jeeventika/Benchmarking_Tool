@@ -18,3 +18,7 @@ export const getDecision = (id) => client.get(`/comparisons/${id}/decision`).the
 
 export const submitDecision = (id, payload) =>
   client.post(`/comparisons/${id}/decision`, payload).then((r) => r.data)
+
+export const createComparison = (payload) =>
+  client.post('/comparisons', payload).then((r) => r.data)
+

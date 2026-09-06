@@ -39,6 +39,21 @@ export function getUnitScale(resultText) {
     return 'Rank position'
   }
 
+  // Duration / battery life in hours (e.g. "27 hours continuous video playback").
+  if (/\b\d+(\.\d+)?\s*(hours?|hrs?)\b/i.test(text)) {
+    return 'Hours'
+  }
+
+  // Latency in milliseconds.
+  if (/\b\d+(\.\d+)?\s*(ms|milliseconds?)\b/i.test(text)) {
+    return 'Milliseconds (ms)'
+  }
+
+  // Camera resolution in Megapixels.
+  if (/\b\d+\s*MP\b/i.test(text)) {
+    return 'Megapixels (MP)'
+  }
+
   // No recognizable unit/scale in the text — do not invent one.
   return null
 }

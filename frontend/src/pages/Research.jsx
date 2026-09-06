@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { getComparison, getEvidence } from '../api/comparisons'
 import { EvidenceStatusBadge, ContaminationRiskBadge } from '../components/StatusBadges'
 import DemoDataBanner from '../components/DemoDataBanner'
+import ExecutiveSummaryBanner from '../components/ExecutiveSummaryBanner'
 
 export default function Research() {
   const { id } = useParams()
@@ -44,7 +45,11 @@ export default function Research() {
         Evidence gathered for: <span className="font-medium text-slate-700">{comparison.goal}</span>
       </p>
       <div className="mt-4">
-        <DemoDataBanner />
+        <DemoDataBanner isSynthetic={Number(id) <= 2} />
+      </div>
+
+      <div className="mt-6">
+        <ExecutiveSummaryBanner comparison={comparison} evidenceCount={evidence.length} />
       </div>
 
       <div className="mt-8 space-y-8">
@@ -52,7 +57,12 @@ export default function Research() {
           <div key={item.id}>
             <h2 className="text-lg font-semibold text-slate-800">{item.name}</h2>
             <div className="mt-3 space-y-3">
-              {rows.map((e) => (
+              {rows.length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-400">
+                  No evidence recorded yet for this item.
+                </div>
+              ) : (
+                rows.map((e) => (
                 <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -89,14 +99,23 @@ export default function Research() {
                       <dd className="inline">{e.conditions}</dd>
                     </div>
                     {e.source_url && (
-                      <div className="sm:col-span-2 truncate">
+                      <div className="sm:col-span-2">
                         <dt className="inline text-slate-400">Reference: </dt>
-                        <dd className="inline">{e.source_url}</dd>
+                        <dd className="inline">
+                          <a
+                            href={e.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 hover:text-indigo-800 underline break-all"
+                          >
+                            {e.source_url}
+                          </a>
+                        </dd>
                       </div>
                     )}
                   </dl>
                 </div>
-              ))}
+              )))}
             </div>
           </div>
         ))}

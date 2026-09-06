@@ -9,6 +9,7 @@ import {
 } from '../api/comparisons'
 import { EvidenceStatusBadge, ContaminationRiskBadge } from '../components/StatusBadges'
 import DemoDataBanner from '../components/DemoDataBanner'
+import ConfidenceScorecard from '../components/ConfidenceScorecard'
 
 const OVERRIDE_REASONS = [
   { value: 'price', label: 'Price' },
@@ -154,7 +155,7 @@ export default function Decision() {
     <div className="max-w-3xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold text-slate-800">Final decision</h1>
       <div className="mt-4">
-        <DemoDataBanner />
+        <DemoDataBanner isSynthetic={Number(id) <= 2} />
       </div>
 
       {/* Final Decision Section — recommendation, reliability, evidence, and the user's decision, all in one place */}
@@ -173,18 +174,11 @@ export default function Decision() {
           </ul>
         </div>
 
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-500">How reliable is this recommendation?</p>
-          <span
-            className={`mt-2 inline-block text-sm font-semibold border rounded-full px-3 py-1 capitalize ${
-              RELIABILITY_STYLES[recommendation.reliability] ||
-              'bg-slate-50 text-slate-600 border-slate-200'
-            }`}
-          >
-            {recommendation.reliability}
-          </span>
-          <p className="mt-2 text-sm text-slate-500">{recommendation.reliability_reason}</p>
-        </div>
+        <ConfidenceScorecard
+          scorecard={recommendation.scorecard}
+          reliability={recommendation.reliability}
+          reason={recommendation.reliability_reason}
+        />
 
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-medium text-slate-500">

@@ -11,44 +11,109 @@ export default function Home() {
       .catch(() => setComparisons([]))
   }, [])
 
-  // Look up demo comparisons by their item_type rather than assuming a
-  // fixed database id — ids can shift depending on seed/reseed order.
-  const collegeDemo = comparisons.find((c) => c.item_type === 'college')
-  const contaminationDemo = comparisons.find((c) => c.item_type === 'ai_model')
+  // Look up demo comparisons by their unique seeded goal so newly created
+  // comparisons never displace the synthetic demonstrations.
+  const collegeDemo =
+    comparisons.find(
+      (c) => c.goal === 'I want to choose the best college for my undergraduate degree.'
+    ) || comparisons.find((c) => c.item_type === 'college')
+  const contaminationDemo =
+    comparisons.find(
+      (c) => c.goal === 'I want to compare coding-assistant models on a public benchmark.'
+    ) || comparisons.find((c) => c.item_type === 'ai_model')
+
+  const userComparisons = comparisons.filter(
+    (c) => c.id !== collegeDemo?.id && c.id !== contaminationDemo?.id
+  )
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12">
-      <h1 className="text-2xl font-semibold text-slate-800">Home page</h1>
-      <p className="mt-2 text-slate-500">Placeholder — full homepage design built in a later phase.</p>
-
-      {collegeDemo && (
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-600">
-            A demo comparison (College A vs. College B, using synthetic data) is seeded and ready to view.
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-800">Decision Support Tool</h1>
+          <p className="mt-1 text-slate-500">
+            Compare options, inspect source evidence, and make well-informed decisions.
           </p>
-          <Link
-            to={`/research/${collegeDemo.id}`}
-            className="mt-3 inline-block rounded-full bg-slate-800 text-white text-sm px-4 py-2 hover:bg-slate-700"
-          >
-            View demo comparison
-          </Link>
+        </div>
+        <Link
+          to="/compare"
+          className="rounded-full bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700 transition"
+        >
+          + New Comparison
+        </Link>
+      </div>
+
+      {userComparisons.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-slate-800">Your comparisons</h2>
+          <div className="mt-3 space-y-3">
+            {userComparisons.map((c) => (
+              <div key={c.id} className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      {c.item_type}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      · {new Date(c.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-slate-800">{c.goal}</p>
+                </div>
+                <Link
+                  to={`/research/${c.id}`}
+                  className="rounded-full border border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 hover:bg-slate-50 transition shrink-0"
+                >
+                  View comparison →
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {contaminationDemo && (
-        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-600">
-            A second, minimal demo (Model X vs. Model Y, using synthetic data) shows how the tool flags a
-            benchmark with a known contamination risk.
-          </p>
-          <Link
-            to={`/research/${contaminationDemo.id}`}
-            className="mt-3 inline-block rounded-full border border-slate-300 text-slate-700 text-sm px-4 py-2 hover:bg-slate-50"
-          >
-            View contamination-risk demo
-          </Link>
-        </div>
-      )}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-slate-800">Demonstrations & sample data</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          The scenarios below demonstrate how the tool evaluates evidence, comparability, and warnings.
+        </p>
+
+        {collegeDemo && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+              Synthetic demonstration
+            </div>
+            <p className="mt-1 text-sm text-slate-700">
+              College comparison (College A vs. College B) demonstrating evidence credibility statuses,
+              direct comparability, conflicting rankings, and user decision override.
+            </p>
+            <Link
+              to={`/research/${collegeDemo.id}`}
+              className="mt-3 inline-block rounded-full bg-slate-800 text-white text-xs font-medium px-4 py-2 hover:bg-slate-700 transition"
+            >
+              View demo comparison →
+            </Link>
+          </div>
+        )}
+
+        {contaminationDemo && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-red-600">
+              Synthetic demonstration
+            </div>
+            <p className="mt-1 text-sm text-slate-700">
+              AI model comparison (Model X vs. Model Y) demonstrating automated contamination-risk flagging
+              on public benchmark data.
+            </p>
+            <Link
+              to={`/research/${contaminationDemo.id}`}
+              className="mt-3 inline-block rounded-full border border-slate-300 text-slate-700 text-xs font-medium px-4 py-2 hover:bg-slate-50 transition"
+            >
+              View contamination-risk demo →
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

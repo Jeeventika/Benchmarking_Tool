@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAnalysisForComparison } from '../services/analysisService.js'
+import { getAnalysisForComparison, generateAndSaveAnalysis } from '../services/analysisService.js'
 
 const router = Router()
 
@@ -8,7 +8,10 @@ const router = Router()
 // never presented as a source fact.
 router.get('/:id/analysis', async (req, res) => {
   try {
-    const analysis = await getAnalysisForComparison(req.params.id)
+    let analysis = await getAnalysisForComparison(req.params.id)
+    if (!analysis) {
+      analysis = await generateAndSaveAnalysis(req.params.id)
+    }
     if (!analysis) {
       return res.status(404).json({ error: 'No analysis found for this comparison' })
     }

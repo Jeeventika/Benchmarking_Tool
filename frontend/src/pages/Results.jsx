@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { getComparison, getEvidence, getComparability } from '../api/comparisons'
 import { ComparabilityBadge, EvidenceStatusBadge, ContaminationRiskBadge } from '../components/StatusBadges'
 import DemoDataBanner from '../components/DemoDataBanner'
+import ExecutiveSummaryBanner from '../components/ExecutiveSummaryBanner'
 import { getUnitScale, normalizeResult } from '../utils/normalization'
 
 export default function Results() {
@@ -48,7 +49,11 @@ export default function Results() {
     <div className="max-w-3xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold text-slate-800">Your Comparison</h1>
       <div className="mt-4">
-        <DemoDataBanner />
+        <DemoDataBanner isSynthetic={Number(id) <= 2} />
+      </div>
+
+      <div className="mt-6">
+        <ExecutiveSummaryBanner comparison={comparison} evidenceCount={evidence.length} />
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -120,7 +125,20 @@ export default function Results() {
                               <dl className="mt-2 grid grid-cols-1 gap-y-0.5 text-xs text-slate-500">
                                 <div>
                                   <dt className="inline text-slate-400">Source: </dt>
-                                  <dd className="inline">{r.source_name}</dd>
+                                  <dd className="inline">
+                                    {r.source_url ? (
+                                      <a
+                                        href={r.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 hover:text-indigo-800 underline"
+                                      >
+                                        {r.source_name}
+                                      </a>
+                                    ) : (
+                                      r.source_name
+                                    )}
+                                  </dd>
                                 </div>
                                 <div>
                                   <dt className="inline text-slate-400">Date: </dt>
@@ -163,8 +181,13 @@ export default function Results() {
       </p>
 
       <div className="mt-4 space-y-4">
-        {evidence.map((r) => {
-          const normalized = normalizeResult(r)
+        {evidence.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-400">
+            No evidence recorded to normalize yet.
+          </div>
+        ) : (
+          evidence.map((r) => {
+            const normalized = normalizeResult(r)
 
           return (
             <div
@@ -205,7 +228,18 @@ export default function Results() {
 
               <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
                 <span className="font-medium text-slate-700">Source:</span>{' '}
-                {normalized.source || '—'}
+                {r.source_url ? (
+                  <a
+                    href={r.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 hover:text-indigo-800 underline"
+                  >
+                    {normalized.source || '—'}
+                  </a>
+                ) : (
+                  normalized.source || '—'
+                )}
                 {' · '}
                 <span className="font-medium text-slate-700">Date:</span>{' '}
                 {normalized.date
@@ -214,7 +248,7 @@ export default function Results() {
               </div>
             </div>
           )
-        })}
+        }))}
       </div>      
       <h2 className="mt-10 text-lg font-semibold text-slate-800">
         Can these results be fairly compared?
