@@ -8,6 +8,9 @@ import Analysis from './pages/Analysis'
 import Recommendation from './pages/Recommendation'
 import Decision from './pages/Decision'
 
+import MyComparisons from './pages/MyComparisons'
+import About from './pages/About'
+
 export default function App() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -15,6 +18,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/compare" element={<StartComparison />} />
+        <Route path="/my-comparisons" element={<MyComparisons />} />
+        <Route path="/about" element={<About />} />
         <Route path="/research/:id" element={<Research />} />
         <Route path="/results/:id" element={<Results />} />
         <Route path="/analysis/:id" element={<Analysis />} />

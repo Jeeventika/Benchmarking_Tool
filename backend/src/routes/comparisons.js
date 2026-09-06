@@ -3,6 +3,7 @@ import { pool } from '../db/pool.js'
 import { generateAndSaveAnalysis } from '../services/analysisService.js'
 import { gatherAndStoreEvidence } from '../services/evidenceGatheringService.js'
 import { parseNaturalPrompt } from '../services/naturalPromptParser.js'
+import { extractTextFromPdf } from '../services/pdfExtractor.js'
 
 const router = Router()
 
@@ -19,37 +20,77 @@ router.get('/', async (req, res) => {
   }
 })
 
-// GET /api/comparisons/:id — a single comparison plus its items.
+// GET /api/comparisons/:id — fetch single comparison with its items
 router.get('/:id', async (req, res) => {
   const { id } = req.params
 
+  const client = await pool.connect()
   try {
-    const comparisonResult = await pool.query(
-      'SELECT id, item_type, goal, criteria, created_at FROM comparisons WHERE id = $1',
-      [id]
-    )
-    if (comparisonResult.rows.length === 0) {
+    const compResult = await client.query('SELECT * FROM comparisons WHERE id = $1', [id])
+    if (compResult.rows.length === 0) {
       return res.status(404).json({ error: 'Comparison not found' })
     }
 
-    const itemsResult = await pool.query(
-      'SELECT id, name FROM comparison_items WHERE comparison_id = $1 ORDER BY id',
+    const itemsResult = await client.query(
+      'SELECT * FROM comparison_items WHERE comparison_id = $1 ORDER BY id',
       [id]
     )
 
-    res.json({ ...comparisonResult.rows[0], items: itemsResult.rows })
+    const comparison = compResult.rows[0]
+    comparison.items = itemsResult.rows
+
+    res.json(comparison)
   } catch (err) {
-    console.error('Failed to load comparison', { message: err.message })
+    console.error('Failed to get comparison', { message: err.message })
     res.status(500).json({ error: 'Could not load comparison' })
+  } finally {
+    client.release()
   }
 })
 
 // POST /api/comparisons — create a comparison (supports explicit fields or natural language prompt)
 router.post('/', async (req, res) => {
-  let { item_type, goal, criteria, items, prompt, text } = req.body
+  let { item_type, goal, criteria, items, prompt, text, documents } = req.body
 
-  // If a natural language prompt or paragraph was submitted, parse it automatically
-  if ((prompt || text) && (!items || items.length < 2)) {
+  // If uploaded documents are provided (e.g. 2 research papers/reports)
+  if (documents && Array.isArray(documents) && documents.length >= 2) {
+    item_type = 'research_paper'
+    documents = documents.map((d, i) => {
+      let docText = d.text || ''
+      if (typeof docText === 'string' && (docText.startsWith('data:') || docText.startsWith('%PDF'))) {
+        try {
+          docText = extractTextFromPdf(docText)
+        } catch (pdfErr) {
+          console.error('PDF text extraction error', { message: pdfErr.message })
+        }
+      }
+      docText = typeof docText === 'string' ? docText.replace(/\0/g, '').trim() : ''
+      const docName = (d.name || d.fileName || `Research Document ${i + 1}`)
+        .replace(/\0/g, '')
+        .replace(/\.[^/.]+$/, '')
+        .trim()
+      return {
+        ...d,
+        name: docName,
+        text: docText || `Document text extracted for ${docName}`,
+      }
+    })
+
+    items = documents.map((d, i) => d.name || `Research Document ${i + 1}`)
+    goal = goal || `Compare ${items.join(' vs ')} for research methodology, evidence strength, and findings`
+    if (prompt && /methodology/i.test(prompt)) {
+      criteria = ['Study Design', 'Methodology', 'Dataset & Sample Size', 'Evaluation Approach', 'Limitations']
+    } else {
+      criteria = criteria && criteria.length >= 1 ? criteria : [
+        'Research Objective',
+        'Methodology',
+        'Dataset & Sample Size',
+        'Results & Evaluation',
+        'Limitations',
+      ]
+    }
+  } else if ((prompt || text) && (!items || items.length < 2)) {
+    // If a natural language prompt or paragraph was submitted, parse it automatically
     const parsed = parseNaturalPrompt(prompt || text)
     if (parsed) {
       item_type = item_type || parsed.item_type
@@ -71,7 +112,7 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'At least two items are required' })
   }
 
-  const cleanItems = items.map((i) => (typeof i === 'string' ? i.trim() : '')).filter(Boolean)
+  const cleanItems = items.map((i) => (typeof i === 'string' ? i.replace(/\0/g, '').trim() : '')).filter(Boolean)
   if (cleanItems.length < 2 || cleanItems.length !== items.length) {
     return res.status(400).json({ error: 'Item names cannot be empty' })
   }
@@ -88,7 +129,7 @@ router.post('/', async (req, res) => {
   }
 
   const cleanCriteria = criteria
-    .map((c) => (typeof c === 'string' ? c.trim() : ''))
+    .map((c) => (typeof c === 'string' ? c.replace(/\0/g, '').trim() : ''))
     .filter(Boolean)
   if (cleanCriteria.length < 1 || cleanCriteria.length !== criteria.length) {
     return res.status(400).json({ error: 'Criterion names cannot be empty' })
@@ -100,7 +141,7 @@ router.post('/', async (req, res) => {
 
     const compResult = await client.query(
       'INSERT INTO comparisons (item_type, goal, criteria) VALUES ($1, $2, $3) RETURNING id',
-      [item_type.trim(), goal.trim(), JSON.stringify(cleanCriteria)]
+      [item_type.replace(/\0/g, '').trim(), goal.replace(/\0/g, '').trim(), JSON.stringify(cleanCriteria)]
     )
     const comparisonId = compResult.rows[0].id
 
@@ -135,7 +176,7 @@ router.post('/', async (req, res) => {
     // Automatically gather and store real evidence with citations, comparability checks,
     // and analysis so the comparison is fully populated before redirecting
     try {
-      await gatherAndStoreEvidence(comparisonId)
+      await gatherAndStoreEvidence(comparisonId, documents)
     } catch (evErr) {
       console.error('Evidence auto-gathering failed', { message: evErr.message })
     }

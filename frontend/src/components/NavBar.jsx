@@ -10,8 +10,8 @@ export default function NavBar() {
         <nav className="hidden sm:flex items-center gap-6 text-sm text-slate-600">
           <Link to="/" className="hover:text-slate-900">Home</Link>
           <Link to="/compare" className="hover:text-slate-900">New Comparison</Link>
-          <Link to="/" className="hover:text-slate-900">My Comparisons</Link>
-          <Link to="/" className="hover:text-slate-900">About</Link>
+          <Link to="/my-comparisons" className="hover:text-slate-900">My Comparisons</Link>
+          <Link to="/about" className="hover:text-slate-900">About</Link>
         </nav>
         <Link
           to="/compare"

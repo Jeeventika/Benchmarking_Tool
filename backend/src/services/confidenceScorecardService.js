@@ -12,26 +12,39 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
   const expectedCount = items.length * criteria.length
   const actualCount = evidenceRows.length
 
-  // 1. Source Quality (Jeeventika's stream: contamination/credibility risk)
+  // 1. Source Quality
   let sourceQualityRating = 'high'
   let sourceQualityReason = 'Sources are authoritative institutional publications, official technical specifications, or verified registries.'
   const hasContamination = evidenceRows.some((e) => e.contamination_risk === 'known_risk')
   const hasReviewStatus = evidenceRows.some((e) => e.evidence_status === 'needs_review')
+  const hasUnverified = evidenceRows.some(
+    (e) => (e.source_name && e.source_name.includes('Unverified')) || (e.result && e.result.includes('Reliable source not found'))
+  )
 
   if (hasContamination) {
     sourceQualityRating = 'low'
     sourceQualityReason = 'Known data contamination risk was flagged in the underlying evidence.'
+  } else if (hasUnverified) {
+    sourceQualityRating = 'low'
+    sourceQualityReason = 'One or more criteria lack verified primary sources; sufficient reliable evidence was not found.'
   } else if (hasReviewStatus) {
     sourceQualityRating = 'medium'
     sourceQualityReason = 'Certain sources require secondary verification or self-report review.'
   }
 
-  // 2. Completeness (Kanishma's stream: coverage across items & criteria)
+  // 2. Completeness
   let completenessRating = 'high'
   let completenessReason = `Full evidence recorded across all ${items.length} options and all ${criteria.length} criteria.`
-  if (actualCount === 0) {
+  const unverifiedCount = evidenceRows.filter(
+    (e) => (e.result && e.result.includes('Reliable source not found')) || (e.source_name && e.source_name.includes('Unverified'))
+  ).length
+
+  if (actualCount === 0 || unverifiedCount === actualCount) {
     completenessRating = 'low'
-    completenessReason = 'No source evidence has been recorded for this comparison.'
+    completenessReason = 'No verified source evidence could be retrieved for the requested criteria.'
+  } else if (unverifiedCount > 0) {
+    completenessRating = 'low'
+    completenessReason = `Evidence gap: ${unverifiedCount} of ${actualCount} criteria could not be verified with an authoritative source.`
   } else if (actualCount < expectedCount) {
     const ratio = actualCount / expectedCount
     if (ratio < 0.6) {
@@ -43,7 +56,7 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
     }
   }
 
-  // 3. Recency (Dates of evidence)
+  // 3. Recency
   let recencyRating = 'high'
   let recencyReason = 'All evidence sources were published or updated within the current reporting cycle (last 12–24 months).'
   const hasOutdated = evidenceRows.some((e) => e.evidence_status === 'outdated')
@@ -62,7 +75,7 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
     recencyReason = `Some evidence figures date back to ${oldestDate}, which may not reflect the newest revisions.`
   }
 
-  // 4. Sample Size (Survey cohort or benchmark evaluation depth)
+  // 4. Sample Size
   let sampleSizeRating = 'high'
   let sampleSizeReason = 'Metrics reflect comprehensive population cohorts, national ranking indices, or standard benchmark suites.'
   const hasSmallSample = evidenceRows.some((e) =>
@@ -73,7 +86,7 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
     sampleSizeReason = 'Certain criteria rely on smaller cohorts or preliminary test iterations.'
   }
 
-  // 5. Methodology (Kanishma & Jeeventika stream: standardized vs ad-hoc)
+  // 5. Methodology
   let methodologyRating = 'high'
   let methodologyReason = 'Evaluation protocols follow standardized, published institutional or laboratory procedures.'
   const hasSubjectiveMethod = evidenceRows.some((e) =>
@@ -84,7 +97,7 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
     methodologyReason = 'Includes self-reported or uncalibrated survey responses that carry subjective variance.'
   }
 
-  // 6. Consistency Across Sources (Sruthi & Mobisha stream: comparability & conflict)
+  // 6. Consistency Across Sources
   let consistencyRating = 'high'
   let consistencyReason = 'All evaluated criteria are confirmed directly comparable without conflicting data points.'
   const hasNotComparable = comparabilityChecks.some((c) => c.status === 'not_comparable')
@@ -100,40 +113,63 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
   }
 
   const factors = {
-    source_quality: { rating: sourceQualityRating, reason: sourceQualityReason, label: 'Source Quality' },
-    completeness: { rating: completenessRating, reason: completenessReason, label: 'Completeness' },
-    recency: { rating: recencyRating, reason: recencyReason, label: 'Recency' },
-    sample_size: { rating: sampleSizeRating, reason: sampleSizeReason, label: 'Sample Size' },
-    methodology: { rating: methodologyRating, reason: methodologyReason, label: 'Methodology' },
-    consistency_across_sources: { rating: consistencyRating, reason: consistencyReason, label: 'Consistency Across Sources' },
+    source_quality: {
+      label: 'Source Quality',
+      rating: sourceQualityRating,
+      reason: sourceQualityReason,
+    },
+    completeness: {
+      label: 'Completeness',
+      rating: completenessRating,
+      reason: completenessReason,
+    },
+    recency: {
+      label: 'Recency',
+      rating: recencyRating,
+      reason: recencyReason,
+    },
+    sample_size: {
+      label: 'Sample Size',
+      rating: sampleSizeRating,
+      reason: sampleSizeReason,
+    },
+    methodology: {
+      label: 'Methodology',
+      rating: methodologyRating,
+      reason: methodologyReason,
+    },
+    consistency_across_sources: {
+      label: 'Consistency Across Sources',
+      rating: consistencyRating,
+      reason: consistencyReason,
+    },
   }
 
-  // Strict Product Owner Rule:
-  // Low if any one factor is rated Low.
-  // High only if all six are High.
-  // Medium otherwise.
-  const allRatings = Object.values(factors).map((f) => f.rating)
+  const ratings = Object.values(factors).map((f) => f.rating)
+
   let overallScore = 'medium'
   let drivingRationale = ''
 
-  const lowFactors = Object.entries(factors).filter(([_, f]) => f.rating === 'low')
-  const mediumFactors = Object.entries(factors).filter(([_, f]) => f.rating === 'medium')
-  const highFactors = Object.entries(factors).filter(([_, f]) => f.rating === 'high')
-
-  if (lowFactors.length > 0) {
+  if (ratings.includes('low')) {
     overallScore = 'low'
-    const names = lowFactors.map(([_, f]) => f.label).join(' and ')
-    const factorReasons = lowFactors.map(([_, f]) => f.reason).join(' ')
-    drivingRationale = `Confidence is rated Low because ${names} rated Low. ${factorReasons}`
-  } else if (allRatings.every((r) => r === 'high')) {
+    const lowFactors = Object.entries(factors)
+      .filter(([_, f]) => f.rating === 'low')
+      .map(([_, f]) => f.label)
+    drivingRationale = `Confidence is rated Low because ${lowFactors.join(' and ')} rated Low. ${
+      factors[Object.keys(factors).find((k) => factors[k].rating === 'low')].reason
+    }`
+  } else if (ratings.every((r) => r === 'high')) {
     overallScore = 'high'
-    drivingRationale = 'Confidence is rated High because all six evidence-quality factors (Source Quality, Completeness, Recency, Sample Size, Methodology, and Consistency Across Sources) met the highest standard.'
+    drivingRationale =
+      'Confidence is rated High because all six evidence-quality factors (source quality, completeness, recency, sample size, methodology, consistency) met rigorous standards.'
   } else {
     overallScore = 'medium'
-    const mediumNames = mediumFactors.map(([_, f]) => f.label).join(', ')
-    const mediumDetails = mediumFactors.map(([_, f]) => f.reason).join(' ')
-    const highNames = highFactors.map(([_, f]) => f.label).join(', ')
-    drivingRationale = `Confidence is rated Medium: while ${highNames} achieved High ratings, the score is driven to Medium by ${mediumNames} (${mediumDetails}).`
+    const mediumFactors = Object.entries(factors)
+      .filter(([_, f]) => f.rating === 'medium')
+      .map(([_, f]) => f.label)
+    drivingRationale = `Confidence is rated Medium due to ${mediumFactors.join(', ')} factors requiring observation. ${
+      factors[Object.keys(factors).find((k) => factors[k].rating === 'medium')].reason
+    }`
   }
 
   return {
