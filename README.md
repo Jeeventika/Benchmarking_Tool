@@ -548,16 +548,3 @@ License
 This project is developed as an team project.
 
 
-### One important correction
-
-I would **definitely replace the old README**, rather than just adding sections to it. The old version currently says:
-
-> `Status: Phase 1 — Scaffold`
-
-and:
-
-> `No business logic ... is implemented yet`
-
-Those statements are completely wrong for your current project and could make a reviewer think you haven't implemented anything.
-
-Also, I intentionally **didn't say that the system performs live web search**, because you reverted that implementation. That's important for keeping the README truthful.
