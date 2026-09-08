@@ -49,7 +49,7 @@ export default function Results() {
     <div className="max-w-3xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold text-slate-800">Your Comparison</h1>
       <div className="mt-4">
-        <DemoDataBanner isSynthetic={Number(id) <= 2} />
+        <DemoDataBanner evidence={evidence} />
       </div>
 
       <div className="mt-6">

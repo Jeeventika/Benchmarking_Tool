@@ -45,7 +45,7 @@ export default function Research() {
         Evidence gathered for: <span className="font-medium text-slate-700">{comparison.goal}</span>
       </p>
       <div className="mt-4">
-        <DemoDataBanner isSynthetic={Number(id) <= 2} />
+        <DemoDataBanner evidence={evidence} />
       </div>
 
       <div className="mt-6">
