@@ -22,7 +22,9 @@ export function classifyClaims(analysisText, items, evidenceRows) {
         item_name: item.name,
         criterion: ev.criterion,
         status: 'grounded',
-        source_reference: `${ev.source_name} (${new Date(ev.source_date).getFullYear()})`,
+        source_reference: ev.source_date
+          ? `${ev.source_name} (${new Date(ev.source_date).getFullYear()})`
+          : ev.source_name,
         source_url: ev.source_url,
         warning: null,
       })

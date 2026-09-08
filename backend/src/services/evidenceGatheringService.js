@@ -743,79 +743,16 @@ function matchEntityKey(itemName) {
 
 // Dynamic Document Evidence Extractor for Uploaded Papers
 export function extractDocumentEvidence(docText, docName, criterion) {
-  const normCrit = normalizeCriterionName(criterion)
-  const safeDocName = docName || 'Uploaded Research Document'
-  const text = docText || ''
-
-  // Look for relevant headings/keywords in the document text
-  if (normCrit === 'objective') {
-    return {
-      result: `Research Objective: Investigates the core hypothesis and primary problem statement outlined in ${safeDocName}.`,
-      source_name: `${safeDocName} — Page 1 — Introduction`,
-      source_url: null,
-      source_date: new Date().toISOString().split('T')[0],
-      method: 'Primary document text extraction of problem statement and research objective',
-      conditions: 'Extracted directly from submitted document text without external alteration',
-      evidence_status: 'reliable',
-    }
-  }
-
-  if (normCrit === 'methodology') {
-    return {
-      result: `Methodology & Study Design: Specifies the experimental setup, algorithmic architecture, and operational baseline outlined in ${safeDocName}.`,
-      source_name: `${safeDocName} — Page 3 — Methodology & Architecture`,
-      source_url: null,
-      source_date: new Date().toISOString().split('T')[0],
-      method: 'Author-specified methodology, mathematical formulations, and experimental protocol',
-      conditions: 'Primary document source evidence',
-      evidence_status: 'reliable',
-    }
-  }
-
-  if (normCrit === 'dataset') {
-    return {
-      result: `Dataset & Sample: Details the evaluation corpus, sample population, and data partition standards defined in ${safeDocName}.`,
-      source_name: `${safeDocName} — Page 4 — Data & Experimental Setup`,
-      source_url: null,
-      source_date: new Date().toISOString().split('T')[0],
-      method: 'Direct extraction of corpus size, training splits, and sample validation controls',
-      conditions: 'Reported by document authors under documented experimental conditions',
-      evidence_status: 'reliable',
-    }
-  }
-
-  if (normCrit === 'results') {
-    return {
-      result: `Results & Evaluation: Reports empirical metrics, comparative benchmark scores, and findings recorded in ${safeDocName}.`,
-      source_name: `${safeDocName} — Page 5 — Results & Evaluation`,
-      source_url: null,
-      source_date: new Date().toISOString().split('T')[0],
-      method: 'Author-reported empirical evaluation metrics, accuracy tables, and quantitative findings',
-      conditions: 'Evaluated against published test benchmarks outlined in document',
-      evidence_status: 'reliable',
-    }
-  }
-
-  if (normCrit === 'limitations') {
-    return {
-      result: `Limitations & Threats to Validity: Cites computational trade-offs, sample bounds, or scope assumptions documented in ${safeDocName}.`,
-      source_name: `${safeDocName} — Page 6 — Discussion & Limitations`,
-      source_url: null,
-      source_date: new Date().toISOString().split('T')[0],
-      method: 'Author-disclosed study constraints, computational bounds, and threat-to-validity statements',
-      conditions: 'Direct disclosure from submitted document text',
-      evidence_status: 'reliable',
-    }
-  }
+  const safeDocName = docName || 'Uploaded Document'
 
   return {
-    result: `Document evidence recorded for ${criterion} in ${safeDocName}`,
-    source_name: `${safeDocName} — Relevant Section`,
+    result: 'Structure only, content not extracted',
+    source_name: safeDocName,
     source_url: null,
-    source_date: new Date().toISOString().split('T')[0],
-    method: 'Direct primary document text extraction',
-    conditions: 'Primary submitted document evidence',
-    evidence_status: 'reliable',
+    source_date: null,
+    method: 'Uploaded document structure recognized; content extraction not performed',
+    conditions: 'Uploaded document pending review',
+    evidence_status: 'needs_review',
   }
 }
 
@@ -923,11 +860,19 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
 
   try {
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Ollama timeout')), 3500)
+      setTimeout(() => reject(new Error('Ollama timeout')), 25000)
     )
     const text = await Promise.race([generateAnalysis(prompt), timeoutPromise])
-    if (text && text.includes('LIMITATION:')) {
-      return text.trim()
+    if (text && typeof text === 'string' && text.trim().length > 0) {
+      let finalText = text.trim()
+      if (!finalText.includes('LIMITATION:')) {
+        finalText += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
+      }
+      const wrapped = new String(finalText)
+      wrapped.text = finalText
+      wrapped.content = finalText
+      wrapped.generatedBy = 'ollama'
+      return wrapped
     }
   } catch (err) {
     console.error('Ollama analysis bypassed or timed out, using grounded synthesis')
@@ -950,11 +895,17 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
       'LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.'
   }
 
-  return (
+  const fallbackText = (
     `Analysis based strictly on verified source evidence:\n\n` +
     `${factsText}\n\n` +
     limitationStatement
   )
+
+  const wrapped = new String(fallbackText)
+  wrapped.text = fallbackText
+  wrapped.content = fallbackText
+  wrapped.generatedBy = 'fallback'
+  return wrapped
 }
 
 // Recommendation Evaluator
@@ -1141,14 +1092,18 @@ export async function gatherAndStoreEvidence(comparisonId, uploadedDocs = null) 
     }
 
     // Grounded Analysis & Classified Claims
-    const analysisText = await createAnalysisContent(comparison, items, insertedEvidenceRows, compChecks)
+    const analysisRes = await createAnalysisContent(comparison, items, insertedEvidenceRows, compChecks)
+    const analysisText = typeof analysisRes === 'string'
+      ? analysisRes
+      : (analysisRes?.content || analysisRes?.text || String(analysisRes))
+    const generatedBy = analysisRes?.generatedBy || 'fallback'
     const claims = classifyClaims(analysisText, items, insertedEvidenceRows)
 
     await client.query(`DELETE FROM analyses WHERE comparison_id = $1`, [comparisonId])
     await client.query(
       `INSERT INTO analyses (comparison_id, content, disagreement_flag, generated_by, claims)
-       VALUES ($1, $2, false, 'grounded_evidence_synthesis', $3)`,
-      [comparisonId, analysisText, JSON.stringify(claims)]
+       VALUES ($1, $2, false, $3, $4)`,
+      [comparisonId, analysisText, generatedBy, JSON.stringify(claims)]
     )
 
     await client.query('COMMIT')

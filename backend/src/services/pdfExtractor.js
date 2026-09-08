@@ -71,5 +71,5 @@ export function extractTextFromPdf(input) {
     .replace(/\s+/g, ' ')
     .trim()
 
-  return cleaned || 'Document content extracted from submitted PDF.'
+  return cleaned || ''
 }

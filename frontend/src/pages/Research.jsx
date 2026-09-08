@@ -88,7 +88,9 @@ export default function Research() {
                     </div>
                     <div>
                       <dt className="inline text-slate-400">Date: </dt>
-                      <dd className="inline">{new Date(e.source_date).toLocaleDateString()}</dd>
+                      <dd className="inline">
+                        {e.source_date ? new Date(e.source_date).toLocaleDateString() : '—'}
+                      </dd>
                     </div>
                     <div className="sm:col-span-2">
                       <dt className="inline text-slate-400">How this result was measured: </dt>

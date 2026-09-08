@@ -1,7 +1,7 @@
 import 'dotenv/config'
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434'
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3'
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:1b'
 
 // The frontend must NEVER call Ollama directly — only this service does,
 // and only the backend imports this service. Callers are responsible for

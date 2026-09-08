@@ -72,7 +72,7 @@ router.post('/', async (req, res) => {
       return {
         ...d,
         name: docName,
-        text: docText || `Document text extracted for ${docName}`,
+        text: docText || '',
       }
     })
 
