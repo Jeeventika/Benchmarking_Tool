@@ -162,11 +162,22 @@ export default function Decision() {
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5 space-y-6">
         <div>
           <p className="text-sm font-medium text-slate-500">System recommendation</p>
-          <p className="mt-1 text-xl font-semibold text-slate-800">
-            {recommendation.recommended_item_name}
-          </p>
+          {recommendation.recommended_item_id ? (
+            <p className="mt-1 text-xl font-semibold text-slate-800">
+              {recommendation.recommended_item_name}
+            </p>
+          ) : (
+            <p className="mt-1 text-lg font-semibold text-amber-800">
+              No supported recommendation (all candidate evidence is unverified)
+            </p>
+          )}
           <ul className="mt-3 space-y-1">
-            {recommendation.reasons.map((reason, i) => (
+            {(Array.isArray(recommendation.reasons)
+              ? recommendation.reasons
+              : typeof recommendation.reasons === 'string'
+                ? JSON.parse(recommendation.reasons || '[]')
+                : []
+            ).map((reason, i) => (
               <li key={i} className="text-sm text-slate-700">
                 ✓ {reason}
               </li>
@@ -180,19 +191,23 @@ export default function Decision() {
           reason={recommendation.reliability_reason}
         />
 
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-500">
-            Supporting evidence for {recommendation.recommended_item_name}
-          </p>
-          <div className="mt-2">
-            <EvidenceList rows={supportingEvidence} />
+        {recommendation.recommended_item_id && (
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-sm font-medium text-slate-500">
+              Supporting evidence for {recommendation.recommended_item_name}
+            </p>
+            <div className="mt-2">
+              <EvidenceList rows={supportingEvidence} />
+            </div>
           </div>
-        </div>
+        )}
 
         {conflictingByItem.map(({ item, rows }) => (
           <div key={item.id} className="border-t border-slate-100 pt-4">
             <p className="text-sm font-medium text-slate-500">
-              Conflicting evidence — what {item.name} offers instead
+              {recommendation.recommended_item_id
+                ? `Conflicting evidence — what ${item.name} offers instead`
+                : `Recorded evidence for ${item.name}`}
             </p>
             <div className="mt-2">
               <EvidenceList rows={rows} />
@@ -228,23 +243,26 @@ export default function Decision() {
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
           <p className="text-sm font-medium text-slate-500">No Decision Yet</p>
           <p className="mt-1 text-slate-600">
-            Do you agree with the recommendation, or would you choose differently? The final decision is
-            yours.
+            {recommendation.recommended_item_id
+              ? 'Do you agree with the recommendation, or would you choose differently? The final decision is yours.'
+              : 'There is no supported recommendation. Please evaluate the evidence and choose an option manually.'}
           </p>
 
           {mode === null && (
             <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={acceptRecommendation}
-                className="rounded-full bg-slate-800 text-white text-sm px-4 py-2 hover:bg-slate-700"
-              >
-                Agree with {recommendation.recommended_item_name}
-              </button>
+              {recommendation.recommended_item_id && (
+                <button
+                  onClick={acceptRecommendation}
+                  className="rounded-full bg-slate-800 text-white text-sm px-4 py-2 hover:bg-slate-700"
+                >
+                  Agree with {recommendation.recommended_item_name}
+                </button>
+              )}
               <button
                 onClick={() => setMode('override')}
                 className="rounded-full border border-slate-300 text-slate-700 text-sm px-4 py-2 hover:bg-slate-50"
               >
-                Choose another option
+                {recommendation.recommended_item_id ? 'Choose another option' : 'Choose your option'}
               </button>
             </div>
           )}

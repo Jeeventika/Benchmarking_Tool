@@ -154,23 +154,6 @@ router.post('/', async (req, res) => {
       createdItemIds.push(itemResult.rows[0].id)
     }
 
-    // Initialize recommendation record so downstream workflow is complete
-    const firstItemId = createdItemIds[0]
-    const defaultReasons = JSON.stringify([
-      `Initial option based on user criteria: ${cleanCriteria.join(', ')}`,
-      'Detailed evidence and comparability checks can be reviewed in the earlier steps',
-    ])
-    await client.query(
-      `INSERT INTO recommendations (comparison_id, recommended_item_id, reasons, reliability, reliability_reason)
-       VALUES ($1, $2, $3, 'medium', $4)`,
-      [
-        comparisonId,
-        firstItemId,
-        defaultReasons,
-        'Medium — user-created comparison. Review the available details before making your final decision.',
-      ]
-    )
-
     await client.query('COMMIT')
 
     // Automatically gather and store real evidence with citations, comparability checks,
@@ -179,6 +162,15 @@ router.post('/', async (req, res) => {
       await gatherAndStoreEvidence(comparisonId, documents)
     } catch (evErr) {
       console.error('Evidence auto-gathering failed', { message: evErr.message })
+      await pool.query(
+        `INSERT INTO recommendations (comparison_id, recommended_item_id, reasons, reliability, reliability_reason)
+         VALUES ($1, NULL, $2, 'low', $3)`,
+        [
+          comparisonId,
+          JSON.stringify(['Evidence gathering could not be completed; no recommendation is supported.']),
+          'Low — evidence gathering could not be completed.',
+        ]
+      )
     }
 
     res.status(201).json({ id: comparisonId })

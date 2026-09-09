@@ -21,7 +21,10 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
     (e) => (e.source_name && e.source_name.includes('Unverified')) || (e.result && e.result.includes('Reliable source not found'))
   )
 
-  if (hasContamination) {
+  if (actualCount === 0) {
+    sourceQualityRating = 'low'
+    sourceQualityReason = 'No source evidence could be retrieved for evaluation.'
+  } else if (hasContamination) {
     sourceQualityRating = 'low'
     sourceQualityReason = 'Known data contamination risk was flagged in the underlying evidence.'
   } else if (hasUnverified) {
@@ -30,13 +33,19 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
   } else if (hasReviewStatus) {
     sourceQualityRating = 'medium'
     sourceQualityReason = 'Certain sources require secondary verification or self-report review.'
+  } else if (actualCount < expectedCount) {
+    sourceQualityRating = 'medium'
+    sourceQualityReason = 'Partial source coverage: some criteria lack recorded source citations.'
   }
 
   // 2. Completeness
   let completenessRating = 'high'
   let completenessReason = `Full evidence recorded across all ${items.length} options and all ${criteria.length} criteria.`
   const unverifiedCount = evidenceRows.filter(
-    (e) => (e.result && e.result.includes('Reliable source not found')) || (e.source_name && e.source_name.includes('Unverified'))
+    (e) =>
+      e.evidence_status === 'needs_review' ||
+      (e.result && e.result.includes('Reliable source not found')) ||
+      (e.source_name && e.source_name.includes('Unverified'))
   ).length
 
   if (actualCount === 0 || unverifiedCount === actualCount) {
@@ -110,6 +119,47 @@ export function evaluateConfidenceScorecard(comparison, items, evidenceRows, com
   } else if (hasPartlyComparable) {
     consistencyRating = 'medium'
     consistencyReason = 'Some criteria are only partly comparable due to differing measurement windows or baselines.'
+  }
+
+  const hasInsufficientEvidence =
+    actualCount === 0 ||
+    actualCount < expectedCount ||
+    hasReviewStatus ||
+    hasUnverified
+
+  if (hasInsufficientEvidence) {
+    if (sourceQualityRating === 'high') {
+      sourceQualityRating = 'low'
+      sourceQualityReason =
+        actualCount === 0
+          ? 'No source evidence could be retrieved for evaluation.'
+          : 'Insufficient evidence: source quality cannot be verified across all requested criteria.'
+    }
+
+    if (completenessRating === 'high') {
+      completenessRating = 'low'
+      completenessReason = 'Insufficient evidence: evidence is incomplete or unverified across the requested criteria.'
+    }
+
+    if (recencyRating === 'high') {
+      recencyRating = 'low'
+      recencyReason = 'Insufficient evidence: source dates were not verified for all requested criteria.'
+    }
+
+    if (sampleSizeRating === 'high') {
+      sampleSizeRating = 'low'
+      sampleSizeReason = 'Insufficient evidence: sample-size information was not extracted or verified for all requested criteria.'
+    }
+
+    if (methodologyRating === 'high') {
+      methodologyRating = 'low'
+      methodologyReason = 'Insufficient evidence: methodology details were not extracted or verified for all requested criteria.'
+    }
+
+    if (consistencyRating === 'high') {
+      consistencyRating = 'low'
+      consistencyReason = 'Insufficient evidence: cross-source consistency cannot be established without verified evidence.'
+    }
   }
 
   const factors = {

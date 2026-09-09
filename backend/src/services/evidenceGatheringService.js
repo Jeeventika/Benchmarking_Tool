@@ -744,14 +744,27 @@ function matchEntityKey(itemName) {
 // Dynamic Document Evidence Extractor for Uploaded Papers
 export function extractDocumentEvidence(docText, docName, criterion) {
   const safeDocName = docName || 'Uploaded Document'
+  const extractedText = typeof docText === 'string' ? docText.trim() : ''
+
+  if (!extractedText) {
+    return {
+      result: `Extraction failed for ${safeDocName}: no document text was extracted.`,
+      source_name: safeDocName,
+      source_url: null,
+      source_date: null,
+      method: 'Uploaded document structure recognized; no content text was extracted',
+      conditions: 'Uploaded document pending review',
+      evidence_status: 'needs_review',
+    }
+  }
 
   return {
-    result: 'Structure only, content not extracted',
+    result: `Content extracted from ${safeDocName}, but findings for ${criterion} remain unverified.`,
     source_name: safeDocName,
     source_url: null,
     source_date: null,
-    method: 'Uploaded document structure recognized; content extraction not performed',
-    conditions: 'Uploaded document pending review',
+    method: 'Uploaded document content extracted; criterion-specific findings not independently verified',
+    conditions: 'Uploaded document content available for review',
     evidence_status: 'needs_review',
   }
 }
@@ -779,6 +792,7 @@ export function evaluateCriterionComparability(criterion, evidenceList) {
 
   const hasUnverified = evidenceList.some(
     (e) =>
+      e.evidence_status === 'needs_review' ||
       (e.source_name && e.source_name.includes('Unverified')) ||
       (e.result && e.result.includes('Reliable source not found'))
   )
@@ -868,13 +882,24 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
       if (!finalText.includes('LIMITATION:')) {
         finalText += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
       }
-      return { content: finalText, text: finalText, generatedBy: 'ollama' }
+      const wrapped = new String(finalText)
+      wrapped.text = finalText
+      wrapped.content = finalText
+      wrapped.generatedBy = 'ollama'
+      return wrapped
     }
   } catch (err) {
     console.error('Ollama analysis bypassed or timed out, using grounded synthesis')
   }
 
   // High-quality grounded fallback synthesis
+  const hasUnverifiedAll = evidenceRows.length > 0 && evidenceRows.every(
+    (e) =>
+      e.evidence_status === 'needs_review' ||
+      (e.source_name && e.source_name.includes('Unverified')) ||
+      (e.result && e.result.includes('Reliable source not found'))
+  )
+
   const factsText = items
     .map((item) => {
       const itemEv = evidenceRows.filter((e) => e.comparison_item_id === item.id)
@@ -891,49 +916,73 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
       'LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.'
   }
 
+  const analysisHeader = hasUnverifiedAll
+    ? 'Analysis based on available unverified source evidence:'
+    : 'Analysis based strictly on verified source evidence:'
+
   const fallbackText = (
-    `Analysis based strictly on verified source evidence:\n\n` +
+    `${analysisHeader}\n\n` +
     `${factsText}\n\n` +
     limitationStatement
   )
 
-  return { content: fallbackText, text: fallbackText, generatedBy: 'fallback' }
+  const wrapped = new String(fallbackText)
+  wrapped.text = fallbackText
+  wrapped.content = fallbackText
+  wrapped.generatedBy = 'fallback'
+  return wrapped
 }
 
 // Recommendation Evaluator
 export function evaluateRecommendation(comparison, items, evidenceRows, comparabilityChecks) {
   if (!items || items.length === 0) return null
 
-  let bestItem = items[0]
-  const reasons = []
+  // Evidence eligibility strictly excludes needs_review and unverified rows
+  const isVerifiedRow = (r) =>
+    r.evidence_status === 'reliable' &&
+    !r.result.includes('Reliable source not found') &&
+    !(r.source_name && r.source_name.includes('Unverified')) &&
+    !r.result.startsWith('Extraction failed')
 
   const verifiedItems = items.map((item) => {
     const rows = evidenceRows.filter((e) => e.comparison_item_id === item.id)
-    const verifiedCount = rows.filter(
-      (r) => !r.result.includes('Reliable source not found') && !r.source_name.includes('Unverified')
-    ).length
-    return { item, verifiedCount }
+    const verifiedRows = rows.filter(isVerifiedRow)
+    return { item, rows, verifiedCount: verifiedRows.length }
   })
 
+  // Sort candidates by verified count descending
   verifiedItems.sort((a, b) => b.verifiedCount - a.verifiedCount)
-  if (verifiedItems[0]) {
-    bestItem = verifiedItems[0].item
+
+  const maxVerifiedCount = verifiedItems[0] ? verifiedItems[0].verifiedCount : 0
+  const unverifiedRows = evidenceRows.filter((e) => !isVerifiedRow(e))
+
+  // CASE A: Every candidate has zero genuinely verified evidence
+  if (maxVerifiedCount === 0) {
+    const reasons = [
+      'No supported recommendation can be made because all candidate evidence is unverified or pending review.',
+      'A winner is not chosen between unverified candidates.',
+    ]
+    return {
+      recommended_item_id: null,
+      reasons: JSON.stringify(reasons),
+      reliability: 'low',
+      reliability_reason:
+        'Low — no candidate possesses verified evidence. All retrieved data points remain unverified or pending review.',
+    }
   }
 
-  const unverifiedRows = evidenceRows.filter(
-    (e) =>
-      (e.source_name && e.source_name.includes('Unverified')) ||
-      (e.result && e.result.includes('Reliable source not found'))
-  )
+  // CASE B: At least one candidate has genuinely verified evidence
+  const bestItem = verifiedItems[0].item
+  const reasons = []
 
   if (unverifiedRows.length > 0) {
     reasons.push(
-      `Option ${bestItem.name} provides the most substantiated verifiable evidence among the evaluated options.`,
-      `Note: ${unverifiedRows.length} requested data points lacked authoritative primary sources and were kept unverified to avoid hallucination.`
+      `Option ${bestItem.name} is recommended because it provides substantiated, verified evidence across evaluated criteria.`,
+      `Note: ${unverifiedRows.length} requested data points lacked authoritative primary sources or remain pending review and were excluded from recommendation eligibility.`
     )
   } else {
     reasons.push(
-      `Strongest overall balance across the specified criteria: ${comparison.criteria.join(', ')}.`,
+      `Strongest overall balance across the specified criteria: ${(comparison.criteria || []).join(', ')}.`,
       `Verified evidence available across authentic primary sources with traceable reporting periods.`
     )
   }
@@ -1076,8 +1125,8 @@ export async function gatherAndStoreEvidence(comparisonId, uploadedDocs = null) 
           comparisonId,
           recData.recommended_item_id,
           recData.reasons,
-          scorecardResult.overallScore,
-          scorecardResult.drivingRationale,
+          recData.reliability,
+          recData.reliability_reason,
           JSON.stringify(scorecardResult.factors),
         ]
       )

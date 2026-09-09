@@ -57,11 +57,30 @@ export default function Recommendation() {
       )}
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-        <p className="text-xl font-semibold text-slate-800">{recommendation.recommended_item_name}</p>
+        {recommendation.recommended_item_id ? (
+          <p className="text-xl font-semibold text-slate-800">{recommendation.recommended_item_name}</p>
+        ) : (
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800 mb-2">
+              <span>⚠</span> No supported recommendation
+            </div>
+            <p className="text-xl font-semibold text-slate-800">
+              No supported recommendation
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              All candidate evidence is unverified or pending review. A winner is not chosen between unverified candidates.
+            </p>
+          </div>
+        )}
 
         <p className="mt-5 text-sm font-medium text-slate-500">Why?</p>
         <ul className="mt-2 space-y-1">
-          {recommendation.reasons.map((reason, i) => (
+          {(Array.isArray(recommendation.reasons)
+            ? recommendation.reasons
+            : typeof recommendation.reasons === 'string'
+              ? JSON.parse(recommendation.reasons || '[]')
+              : []
+          ).map((reason, i) => (
             <li key={i} className="text-sm text-slate-700">
               ✓ {reason}
             </li>

@@ -9,7 +9,7 @@ export async function getRecommendationForComparison(comparisonId) {
     `SELECT r.id, r.recommended_item_id, ci.name AS recommended_item_name,
             r.reasons, r.reliability, r.reliability_reason, r.scorecard
      FROM recommendations r
-     JOIN comparison_items ci ON ci.id = r.recommended_item_id
+     LEFT JOIN comparison_items ci ON ci.id = r.recommended_item_id
      WHERE r.comparison_id = $1`,
     [comparisonId]
   )
