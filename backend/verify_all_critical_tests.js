@@ -96,6 +96,9 @@ async function run() {
   res1.evidence.forEach(e => console.log(`  [${e.item_name}] ${e.criterion}: "${e.result.slice(0, 60)}..." | Source: ${e.source_name} | URL: ${e.source_url}`))
   const unverified1 = res1.evidence.filter(e => e.result.includes('Reliable source not found'))
   console.log(`Unverified rows in Test 1: ${unverified1.length} (Expected: 0)\n`)
+  if (unverified1.length !== 0) {
+  throw new Error(`TEST 1 FAILED: Expected 0 unverified rows, got ${unverified1.length}`)
+}
 
   // TEST 2: Natural-language comparison without explicit criteria
   console.log('--- TEST 2: Natural-language comparison without explicit criteria ---');
@@ -108,6 +111,9 @@ async function run() {
   res2.evidence.slice(0, 4).forEach(e => console.log(`  [${e.item_name}] ${e.criterion}: "${e.result.slice(0, 60)}..." | Source: ${e.source_name} | URL: ${e.source_url}`))
   const unverified2 = res2.evidence.filter(e => e.result.includes('Reliable source not found'))
   console.log(`Unverified rows in Test 2: ${unverified2.length} (Expected: 0)\n`)
+  if (unverified2.length !== 0) {
+  throw new Error(`TEST 2 FAILED: Expected 0 unverified rows, got ${unverified2.length}`)
+}
 
   // TEST 3: Three-item comparison
   console.log('--- TEST 3: Three-item comparison ---');
@@ -120,6 +126,9 @@ async function run() {
   res3.evidence.forEach(e => console.log(`  [${e.item_name}] ${e.criterion}: Source: ${e.source_name} | URL: ${e.source_url}`))
   const unverified3 = res3.evidence.filter(e => e.result.includes('Reliable source not found'))
   console.log(`Unverified rows in Test 3: ${unverified3.length} (Expected: 0)\n`)
+  if (unverified3.length !== 0) {
+  throw new Error(`TEST 3 FAILED: Expected 0 unverified rows, got ${unverified3.length}`)
+}
 
   // TEST 4: Two real research documents
   console.log('--- TEST 4: Two real research documents ---');
@@ -142,6 +151,9 @@ async function run() {
   console.log('Document Citations:')
   res4.evidence.forEach(e => console.log(`  [${e.item_name}] ${e.criterion} -> ${e.source_name} (URL: ${e.source_url})`))
   console.log('Confidence Level:', res4.recommendation.reliability, '| Rationale:', res4.recommendation.reliability_reason, '\n')
+  if (!res4.recommendation.reliability) {
+  throw new Error('TEST 4 FAILED: Recommendation reliability is missing')
+}
 
   // TEST 5: Document comparison with a specific question
   console.log('--- TEST 5: Document comparison with specific question ---');
@@ -157,6 +169,9 @@ async function run() {
   console.log('Question-focused Criteria:', res5.comparison.criteria)
   console.log('Methodology-focused citations:')
   res5.evidence.slice(0, 4).forEach(e => console.log(`  [${e.item_name}] ${e.criterion} -> ${e.source_name}`))
+  if (!res5.comparison.criteria || res5.comparison.criteria.length === 0) {
+  throw new Error('TEST 5 FAILED: No comparison criteria generated')
+}
 
   console.log('\n================================================================');
   console.log('ALL CRITICAL TESTS VERIFIED SUCCESSFULLY');
