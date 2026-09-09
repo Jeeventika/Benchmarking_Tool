@@ -868,11 +868,7 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
       if (!finalText.includes('LIMITATION:')) {
         finalText += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
       }
-      const wrapped = new String(finalText)
-      wrapped.text = finalText
-      wrapped.content = finalText
-      wrapped.generatedBy = 'ollama'
-      return wrapped
+      return { content: finalText, text: finalText, generatedBy: 'ollama' }
     }
   } catch (err) {
     console.error('Ollama analysis bypassed or timed out, using grounded synthesis')
@@ -901,11 +897,7 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
     limitationStatement
   )
 
-  const wrapped = new String(fallbackText)
-  wrapped.text = fallbackText
-  wrapped.content = fallbackText
-  wrapped.generatedBy = 'fallback'
-  return wrapped
+  return { content: fallbackText, text: fallbackText, generatedBy: 'fallback' }
 }
 
 // Recommendation Evaluator
