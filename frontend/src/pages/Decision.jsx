@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom'
 import {
   getComparison,
   getRecommendation,
+  getComparability,
+  getAnalysis,
   getEvidence,
   getDecision,
   submitDecision,
@@ -56,6 +58,8 @@ function EvidenceList({ rows }) {
 export default function Decision() {
   const { id } = useParams()
   const [comparison, setComparison] = useState(null)
+  const [comparability, setComparability] = useState([])
+  const [analysis, setAnalysis] = useState(null)
   const [recommendation, setRecommendation] = useState(null)
   const [evidence, setEvidence] = useState([])
   const [existingDecision, setExistingDecision] = useState(null)
@@ -69,9 +73,11 @@ export default function Decision() {
 
   useEffect(() => {
     setStatus('loading')
-    Promise.all([getComparison(id), getRecommendation(id), getEvidence(id), getDecision(id)])
-      .then(([comparisonData, recommendationData, evidenceData, decisionData]) => {
+    Promise.all([getComparison(id),getComparability(id),getAnalysis(id), getRecommendation(id), getEvidence(id), getDecision(id)])
+      .then(([comparisonData, comparabilityData, analysisData, recommendationData, evidenceData, decisionData]) => { 
         setComparison(comparisonData)
+        setComparability(comparabilityData)
+        setAnalysis(analysisData)
         setRecommendation(recommendationData)
         setEvidence(evidenceData)
         setExistingDecision(decisionData)
@@ -151,9 +157,88 @@ export default function Decision() {
       existingDecision.override_reason
     : null
 
-  return (
+async function handleShare() {
+  const shareUrl = `${window.location.origin}/decision/${id}`
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: comparison?.goal || 'Benchmarking Comparison',
+        text: 'View this benchmarking comparison and final decision.',
+        url: shareUrl,
+      })
+    } else {
+      await navigator.clipboard.writeText(shareUrl)
+      alert('Share link copied to clipboard.')
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      alert('Could not share this comparison.')
+    }
+  }
+}
+
+
+function handleDownload() {
+  const report = `
+BENCHMARKING REPORT
+===================
+
+Goal:
+${comparison?.goal || 'Not specified'}
+
+Options:
+${comparison?.items?.map((item) => `- ${item.name}`).join('\n') || 'None'}
+
+SYSTEM RECOMMENDATION:
+${recommendation?.recommended_item_name || 'No supported recommendation'}
+
+RELIABILITY:
+${recommendation?.reliability || 'Not available'}
+
+EVIDENCE:
+${evidence.length
+    ? evidence.map((e) => `- ${e.criterion}: ${e.result} [${e.evidence_status || 'unknown'}]`).join('\n')
+    : 'No evidence recorded.'}
+
+AI ANALYSIS:
+${analysis?.content || 'No analysis available.'}
+
+FINAL DECISION:
+${existingDecision?.chosen_item_name || 'No final decision recorded.'}
+`.trim()
+
+  const blob = new Blob([report], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `benchmarking-report-${id}.txt`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  URL.revokeObjectURL(url)
+}
+
+return (
     <div className="max-w-3xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold text-slate-800">Final decision</h1>
+      <div className="mt-4 flex flex-wrap gap-3">
+  <button
+    onClick={handleShare}
+    className="rounded-full border border-slate-300 text-slate-700 text-sm px-4 py-2 hover:bg-slate-50"
+  >
+    Share
+  </button>
+
+  <button
+    onClick={handleDownload}
+    className="rounded-full bg-slate-800 text-white text-sm px-4 py-2 hover:bg-slate-700"
+  >
+    Download Report
+  </button>
+</div>
       <div className="mt-4">
         <DemoDataBanner evidence={evidence} />
       </div>
