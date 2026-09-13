@@ -778,6 +778,7 @@ function getUnverifiedFallback(itemName, criterionName) {
     source_date: new Date().toISOString().split('T')[0],
     method: 'Automated retrieval could not locate an authoritative primary publication for this specific criterion',
     conditions: 'Requires manual verification',
+    evidence_status: 'needs_review',
   }
 }
 
