@@ -15,19 +15,36 @@ export function classifyClaims(analysisText, items, evidenceRows) {
     const itemEv = evidenceRows.filter((e) => e.comparison_item_id === item.id)
 
     for (const ev of itemEv) {
-      // Grounded analytical claim derived directly from recorded source evidence
-      claims.push({
-        id: claimId++,
-        claim: `${item.name} reports ${ev.criterion} of ${ev.result}.`,
-        item_name: item.name,
-        criterion: ev.criterion,
-        status: 'grounded',
-        source_reference: ev.source_date
-          ? `${ev.source_name} (${new Date(ev.source_date).getFullYear()})`
-          : ev.source_name,
-        source_url: ev.source_url,
-        warning: null,
-      })
+      // Check whether the evidence is actually reliable
+const sourceText = String(ev.source_name || '').toLowerCase()
+const resultText = String(ev.result || '').toLowerCase()
+const evidenceStatus = String(ev.evidence_status || '').toLowerCase()
+
+const isUnverified =
+  sourceText.includes('unverified') ||
+  sourceText.includes('no authoritative source') ||
+  resultText.includes('reliable source not found') ||
+  resultText.includes('no authoritative source') ||
+  evidenceStatus === 'needs_review' ||
+  evidenceStatus === 'unverified' ||
+  !ev.source_name
+
+const claimIsGrounded = !isUnverified
+
+claims.push({
+  id: claimId++,
+  claim: `${item.name} reports ${ev.criterion} of ${ev.result}.`,
+  item_name: item.name,
+  criterion: ev.criterion,
+  status: claimIsGrounded ? 'grounded' : 'potentially_unverified',
+  source_reference: ev.source_date
+    ? `${ev.source_name} (${new Date(ev.source_date).getFullYear()})`
+    : ev.source_name || 'No authoritative source retrieved',
+  source_url: ev.source_url || null,
+  warning: claimIsGrounded
+    ? null
+    : 'This claim does not have reliable authoritative source evidence.',
+})
     }
   }
 
