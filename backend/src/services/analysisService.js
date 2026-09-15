@@ -1,5 +1,6 @@
 import { pool } from '../db/pool.js'
 import { generateAnalysis } from './ollamaService.js'
+import { checkNarrativeConsistency } from './narrativeConsistencyService.js'
 
 // Reads generated analysis for a comparison. Always keep this labeled in
 // the UI as "Analysis based on the available evidence" — never presented
@@ -12,8 +13,8 @@ export async function getAnalysisForComparison(comparisonId) {
      ORDER BY created_at DESC
      LIMIT 1`,
     [comparisonId]
-  )
-  return rows[0] || null
+)
+    return rows[0] || null
 }
 
 const inFlightGenerations = new Map()
@@ -66,6 +67,22 @@ export async function generateAndSaveAnalysis(comparisonId) {
         generatedBy = 'system_fallback'
         content = `Analysis based on the available information: Comparing ${itemNames.join(' vs. ')} for the goal "${comparison.goal || 'comparison'}" across criteria: ${criteria.join(', ')}.\n\nLIMITATION: Detailed source evidence has not yet been recorded for this newly created comparison.`
       }
+      // Check generated analysis against the current source evidence.
+      const evidenceResult = await pool.query(
+        `SELECT ci.name AS item_name, e.criterion, e.result
+         FROM evidence e
+         JOIN comparison_items ci ON ci.id = e.comparison_item_id
+         WHERE ci.comparison_id = $1
+         ORDER BY ci.id, e.criterion, e.id`,
+        [comparisonId]
+      )
+
+      const narrativeCheck = checkNarrativeConsistency(
+        content,
+        evidenceResult.rows
+      )
+
+      const disagreementFlag = narrativeCheck.hasConflict
 
       // Check once more in case another thread inserted
       const checkAgain = await getAnalysisForComparison(comparisonId)
@@ -73,9 +90,9 @@ export async function generateAndSaveAnalysis(comparisonId) {
 
       const { rows } = await pool.query(
         `INSERT INTO analyses (comparison_id, content, disagreement_flag, generated_by)
-         VALUES ($1, $2, false, $3)
+         VALUES ($1, $2, $3, $4)
          RETURNING id, content, disagreement_flag, generated_by, created_at`,
-        [comparisonId, content, generatedBy]
+        [comparisonId, content, disagreementFlag, generatedBy]
       )
       return rows[0] || null
     } finally {
