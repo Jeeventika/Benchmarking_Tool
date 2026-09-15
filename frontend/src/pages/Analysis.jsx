@@ -30,7 +30,7 @@ export default function Analysis() {
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 border-t-slate-800"></div>
           <h2 className="text-lg font-semibold text-slate-800">Generating AI Analysis</h2>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Analyzing your options using local Ollama. This takes a few moments on the first load…
+            Analyzing your options using local Ollama. This takes a few moments on the first loadâ€¦
           </p>
         </div>
       </div>
@@ -48,7 +48,7 @@ export default function Analysis() {
   const parts = content.split(/LIMITATION:/i)
   const mainText = parts[0]?.replace(/\*\*+$/, '').trim() || ''
   const limitationText = parts.length > 1 ? parts.slice(1).join('LIMITATION:').replace(/^\*\*+/, '').trim() : null
-  // Only warn when the evidence actually records a known contamination risk —
+  // Only warn when the evidence actually records a known contamination risk â€”
   // never inferred from item_type or criterion name.
   const hasKnownContaminationRisk = evidence.some((e) => e.contamination_risk === 'known_risk')
 
@@ -72,13 +72,13 @@ export default function Analysis() {
 
       {analysis.disagreement_flag && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-2 font-medium">
-          SOURCES DISAGREE — some of the underlying evidence conflicts. See the details below.
+          GENERATED ANALYSIS INCONSISTENCY DETECTED — the generated analysis conflicts with the source evidence. See the details below.
         </div>
       )}
 
       {hasKnownContaminationRisk && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-2 font-medium">
-          ⚠ CONTAMINATION RISK — some of the underlying evidence has a known contamination risk.
+          âš  CONTAMINATION RISK â€” some of the underlying evidence has a known contamination risk.
           Review that evidence before relying on this analysis.
         </div>
       )}
@@ -112,12 +112,12 @@ export default function Analysis() {
                 </div>
 
                 <div className="mt-1 text-xs text-slate-500">
-                  Source: {e.source_name || '—'}
-                  {' · '}
+                  Source: {e.source_name || 'â€”'}
+                  {' Â· '}
                   Date:{' '}
                   {e.source_date
                     ? new Date(e.source_date).toLocaleDateString()
-                    : '—'}
+                    : 'â€”'}
                 </div>
               </div>
             ))
@@ -150,7 +150,7 @@ export default function Analysis() {
         )}
       </div>
 
-      {/* Unsupported Claims Classifier — Decided OPEN Item from Product Owner */}
+      {/* Unsupported Claims Classifier â€” Decided OPEN Item from Product Owner */}
       {claims.length > 0 && (
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex items-center justify-between gap-2">
@@ -158,7 +158,7 @@ export default function Analysis() {
               Claims Classifier & Grounding Verification
             </span>
             <span className="text-xs text-slate-400">
-              {claims.filter((c) => c.status === 'grounded').length} grounded · {claims.filter((c) => c.status !== 'grounded').length} unverified
+              {claims.filter((c) => c.status === 'grounded').length} grounded Â· {claims.filter((c) => c.status !== 'grounded').length} unverified
             </span>
           </div>
 
@@ -187,7 +187,7 @@ export default function Analysis() {
                           : 'bg-amber-100 text-amber-800 border-amber-300'
                       }`}
                     >
-                      {isGrounded ? 'Grounded ✓' : 'Potentially Unverified ⚠'}
+                      {isGrounded ? 'Grounded âœ“' : 'Potentially Unverified âš '}
                     </span>
                   </div>
 
@@ -209,7 +209,7 @@ export default function Analysis() {
                           {claim.source_reference}
                         </a>
                       ) : (
-                        <span>{claim.source_reference || '—'}</span>
+                        <span>{claim.source_reference || 'â€”'}</span>
                       )}
                     </div>
                   </div>
@@ -230,7 +230,7 @@ export default function Analysis() {
         to={`/recommendation/${id}`}
         className="mt-8 inline-block rounded-full bg-slate-800 text-white text-sm px-4 py-2 hover:bg-slate-700"
       >
-        See the recommendation →
+        See the recommendation â†’
       </Link>
     </div>
   )
