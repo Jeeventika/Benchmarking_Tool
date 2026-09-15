@@ -2,6 +2,7 @@ import { pool } from '../db/pool.js'
 import { generateAnalysis } from './ollamaService.js'
 import { evaluateConfidenceScorecard } from './confidenceScorecardService.js'
 import { classifyClaims } from './claimsClassifierService.js'
+import { checkNarrativeConsistency } from './narrativeConsistencyService.js'
 
 // ============================================================================
 // AUTHORITATIVE VERIFIED KNOWLEDGE BASE
@@ -1139,13 +1140,16 @@ export async function gatherAndStoreEvidence(comparisonId, uploadedDocs = null) 
       ? analysisRes
       : (analysisRes?.content || analysisRes?.text || String(analysisRes))
     const generatedBy = analysisRes?.generatedBy || 'fallback'
+    const narrativeCheck = checkNarrativeConsistency(analysisText, insertedEvidenceRows)
+    const disagreementFlag = narrativeCheck.hasConflict
+
     const claims = classifyClaims(analysisText, items, insertedEvidenceRows)
 
     await client.query(`DELETE FROM analyses WHERE comparison_id = $1`, [comparisonId])
     await client.query(
       `INSERT INTO analyses (comparison_id, content, disagreement_flag, generated_by, claims)
-       VALUES ($1, $2, false, $3, $4)`,
-      [comparisonId, analysisText, generatedBy, JSON.stringify(claims)]
+       VALUES ($1, $2, $3, $4, $5)`,
+      [comparisonId, analysisText, disagreementFlag, generatedBy, JSON.stringify(claims)]
     )
 
     await client.query('COMMIT')

@@ -47,14 +47,35 @@ router.get('/:id/analysis', async (req, res) => {
             content += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
           }
 
-          // Persist the new Ollama-generated analysis, replacing the stale fallback.
-          const { rows } = await pool.query(
-            `UPDATE analyses
-             SET content = $1, generated_by = 'ollama', created_at = NOW()
-             WHERE comparison_id = $2
-             RETURNING id, content, disagreement_flag, generated_by, claims, created_at`,
-            [content, req.params.id]
-          )
+          // Recalculate narrative consistency against the current evidence.
+const evidenceResult = await pool.query(
+  `SELECT ci.name AS item_name, e.criterion, e.result
+   FROM evidence e
+   JOIN comparison_items ci ON ci.id = e.comparison_item_id
+   WHERE ci.comparison_id = $1
+   ORDER BY ci.id, e.criterion, e.id`,
+  [req.params.id]
+)
+
+const narrativeCheck = checkNarrativeConsistency(
+  content,
+  evidenceResult.rows
+)
+
+const disagreementFlag = narrativeCheck.hasConflict
+
+// Persist the new Ollama-generated analysis and refreshed conflict flag.
+const { rows } = await pool.query(
+  `UPDATE analyses
+   SET content = $1,
+       disagreement_flag = $2,
+       generated_by = 'ollama',
+       created_at = NOW()
+   WHERE comparison_id = $3
+   RETURNING id, content, disagreement_flag, generated_by, claims, created_at`,
+  [content, disagreementFlag, req.params.id]
+)
+
           if (rows.length > 0) {
             analysis = rows[0]
           }
@@ -71,6 +92,7 @@ router.get('/:id/analysis', async (req, res) => {
     if (!analysis) {
       return res.status(404).json({ error: 'No analysis found for this comparison' })
     }
+
     res.json(analysis)
   } catch (err) {
     console.error('Failed to load analysis', { message: err.message })
