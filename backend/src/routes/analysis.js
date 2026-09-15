@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { pool } from '../db/pool.js'
 import { getAnalysisForComparison, generateAndSaveAnalysis } from '../services/analysisService.js'
 import { generateAnalysis } from '../services/ollamaService.js'
+import { checkNarrativeConsistency } from '../services/narrativeConsistencyService.js'
 
 const router = Router()
 
