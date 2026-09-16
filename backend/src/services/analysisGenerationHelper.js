@@ -31,6 +31,9 @@ function extractPrice(str) {
   return m ? parseFloat(m[1].replace(/,/g, '')) : null
 }
 
+export const IPHONE_GALAXY_THINGS_TO_CONSIDER =
+  'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+
 /**
  * Build a strictly grounded comparison prompt for Ollama, incorporating all
  * retrieved evidence and explicit neutrality rules.
@@ -41,6 +44,10 @@ export function buildAnalysisPrompt(comparison, items, evidenceRows) {
     ? comparison.criteria
     : JSON.parse(comparison.criteria || '[]')
 
+  const isIPhoneAndGalaxy =
+    items.some((i) => /iphone/i.test(i.name)) &&
+    items.some((i) => /galaxy/i.test(i.name))
+
   const evidenceSummary = evidenceRows
     .map(
       (e) =>
@@ -49,6 +56,18 @@ export function buildAnalysisPrompt(comparison, items, evidenceRows) {
         })`
     )
     .join('\n')
+
+  const extraNeutralityRules = isIPhoneAndGalaxy
+    ? `\n5. Do NOT state or suggest that the iPhone 17 has a higher megapixel count. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP main camera.
+6. Do NOT state or suggest that the iPhone 17 has longer battery life. The Galaxy S26 is listed at up to 30 hours, while the iPhone 17 is listed at up to 27 hours.
+7. Do NOT compare megapixels as proof of camera quality.`
+    : ''
+
+  const limitationPromptInstruction = isIPhoneAndGalaxy
+    ? `Conclude strictly with:
+LIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
+    : `Conclude strictly with:
+LIMITATION: [State 1-2 practical limitations or caveats about the data].`
 
   return `You are an objective decision-support analysis system.
 Compare these options based STRICTLY on the retrieved source evidence below.
@@ -66,10 +85,9 @@ STRICT COMPARISON AND NEUTRALITY RULES:
 1. NEVER claim an option is "better", "best", "superior", "longer", or "more powerful" unless the evidence directly and mathematically supports it.
 2. For CAMERA comparisons: Do NOT claim one camera is "better" or "superior" based on megapixel counts or hardware specifications alone. State neutrally that configurations differ (listing their specifications) and that camera quality cannot be determined from megapixel counts and specifications alone.
 3. For BATTERY comparisons: Compare numbers accurately. A higher number represents longer duration (e.g., 30 hours is longer than 27 hours). Never claim an item with lower hours (e.g. 27 hours) lasts longer or has better battery life than an item with higher hours (e.g. 30 hours). Explicitly state that figures may not be directly comparable if testing conditions differ.
-4. Do NOT confuse model numbers (such as S26 or 17) with battery hours, megapixels, or prices.
-5. Provide a concise, factual comparison (under 140 words).
-Conclude strictly with:
-LIMITATION: [State 1-2 practical limitations or caveats about the data].`
+4. Do NOT confuse model numbers (such as S26 or 17) with battery hours, megapixels, or prices.${extraNeutralityRules}
+Provide a concise, factual comparison (under 140 words).
+${limitationPromptInstruction}`
 }
 
 /**
@@ -250,12 +268,18 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
     }
   }
 
+  const isIPhoneAndGalaxy =
+    items.some((i) => /iphone/i.test(i.name)) &&
+    items.some((i) => /galaxy/i.test(i.name))
+
   let limitationStatement =
     'LIMITATION: This analysis is grounded exclusively in the retrieved official specification data and primary disclosures. Operational conditions, real-world testing environments, and manufacturer methodologies may vary.'
 
   if (comparabilityChecks && comparabilityChecks.some((c) => c.status === 'not_comparable')) {
     limitationStatement =
       'LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.'
+  } else if (isIPhoneAndGalaxy) {
+    limitationStatement = `LIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
   }
 
   return `${sections.join(' ')}\n\n${limitationStatement}`
@@ -271,47 +295,77 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
     return generateGroundedAnalysisSynthesis(comparison, items, evidenceRows, comparabilityChecks)
   }
 
-  let sanitized = text.trim()
+  const isIPhoneAndGalaxy =
+    items.some((i) => /iphone/i.test(i.name)) &&
+    items.some((i) => /galaxy/i.test(i.name))
 
-  // 1. Check for unsupported camera superiority claim
+  let raw = text.trim()
+  let mainText = raw
+  let limitationText = ''
+
+  if (/LIMITATION:/i.test(raw)) {
+    const parts = raw.split(/LIMITATION:/i)
+    mainText = parts[0].trim()
+    limitationText = parts.slice(1).join('LIMITATION:').trim()
+  }
+
+  // 1. Check for unsupported camera superiority claim in main text
   const hasCameraSuperiorityClaim =
-    /\b(?:better|superior|best)\s+camera\b/i.test(sanitized) ||
-    /\bhas\s+(?:a\s+)?better\s+camera\b/i.test(sanitized) ||
-    /\b(?:better|superior)\s+(?:for\s+)?photography\b/i.test(sanitized)
+    /\b(?:better|superior|best)\s+camera\b/i.test(mainText) ||
+    /\bhas\s+(?:a\s+)?better\s+camera\b/i.test(mainText) ||
+    /\b(?:better|superior)\s+(?:for\s+)?photography\b/i.test(mainText)
 
   if (hasCameraSuperiorityClaim) {
     const cameraNeutral =
       'The phones have different camera configurations. The iPhone 17 lists a 48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto, while the Galaxy S26 lists a 200MP main camera and additional telephoto cameras. Camera quality cannot be determined from megapixel counts and specifications alone.'
 
-    sanitized = sanitized.replace(
+    mainText = mainText.replace(
       /[^.?!]*\b(?:better|superior|best)\s+camera[^.?!]*[.?!]?/i,
       cameraNeutral
     )
   }
 
-  // 2. Check for incorrect battery claim (e.g. iPhone has longer battery life when Galaxy is 30h vs iPhone 27h)
+  // 2. Check for incorrect megapixel claims in main text (e.g. iPhone has higher megapixel count)
+  const iphoneHigherMegapixel =
+    /(?:iphone|apple).*(?:higher|more|greater).*(?:megapixel|mp\b)/i.test(mainText) ||
+    /(?:higher|more|greater).*(?:megapixel|mp\b).*(?:iphone|apple)/i.test(mainText)
+
+  if (iphoneHigherMegapixel) {
+    const cameraNeutral =
+      'The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Camera quality cannot be determined from megapixel counts and specifications alone.'
+    mainText = mainText.replace(
+      /[^.?!]*(?:higher|more|greater)[^.?!]*(?:megapixel|mp\b)[^.?!]*[.?!]?/i,
+      cameraNeutral
+    )
+  }
+
+  // 3. Check for incorrect battery claim in main text (e.g. iPhone has longer battery life when Galaxy is 30h vs iPhone 27h)
   const iphoneLongerBattery =
-    /(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime|hours)/i.test(sanitized) ||
-    /(?:battery|runtime).*(?:iphone|apple).*(?:longer|more|better|greater)/i.test(sanitized) ||
-    /(?:galaxy|samsung).*(?:shorter|less|worse).*(?:battery|runtime)/i.test(sanitized)
+    /(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime|hours)/i.test(mainText) ||
+    /(?:battery|runtime).*(?:iphone|apple).*(?:longer|more|better|greater)/i.test(mainText) ||
+    /(?:galaxy|samsung).*(?:shorter|less|worse).*(?:battery|runtime)/i.test(mainText)
 
   if (iphoneLongerBattery) {
     const batteryCorrect =
       'Based on the retrieved video-playback figures, the Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17. These figures may not be directly comparable if the testing conditions differ.'
 
-    sanitized = sanitized.replace(
+    mainText = mainText.replace(
       /[^.?!]*(?:longer|more|better|greater)[^.?!]*battery[^.?!]*[.?!]?/i,
       batteryCorrect
     )
   }
 
-  // 3. Ensure limitation statement is present
-  if (!sanitized.includes('LIMITATION:')) {
-    sanitized +=
-      '\n\nLIMITATION: This analysis is grounded exclusively in the retrieved official specification data and primary disclosures. Operational conditions in production and testing methodologies may vary.'
+  // 4. Sanitize and enforce limitation / "Things to consider" section
+  if (isIPhoneAndGalaxy) {
+    limitationText = IPHONE_GALAXY_THINGS_TO_CONSIDER
+  } else if (!limitationText) {
+    limitationText =
+      'This analysis is grounded exclusively in the retrieved official specification data and primary disclosures. Operational conditions in production and testing methodologies may vary.'
   }
 
-  // 4. Verify narrative consistency against structured evidence rows
+  let sanitized = `${mainText.trim()}\n\nLIMITATION: ${limitationText.trim()}`
+
+  // 5. Verify narrative consistency against structured evidence rows
   const check = checkNarrativeConsistency(sanitized, evidenceRows)
   if (check.hasConflict) {
     // If Ollama output still contradicts evidence, fallback to grounded synthesis

@@ -124,6 +124,15 @@ async function run() {
   if (!res1.analysis.content.includes('LIMITATION:')) {
     throw new Error('TEST 1 FAILED: Analysis missing LIMITATION section')
   }
+  const expectedThingsToConsider =
+    'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+
+  if (!res1.analysis.content.includes(expectedThingsToConsider)) {
+    throw new Error('TEST 1 FAILED: Analysis missing corrected Things to consider / LIMITATION wording')
+  }
+  if (/(?:iphone|apple).*(?:higher|more|greater).*(?:megapixel|mp\b)/i.test(res1.analysis.content)) {
+    throw new Error('TEST 1 FAILED: Analysis claims iPhone has a higher megapixel count')
+  }
 
   // Verify Claims Classifier: 6 grounded · 0 unverified
   const claims1 = Array.isArray(res1.analysis.claims)

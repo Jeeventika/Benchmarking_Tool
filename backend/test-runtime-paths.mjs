@@ -23,6 +23,7 @@ import {
   buildAnalysisPrompt,
   generateGroundedAnalysisSynthesis,
   validateAndSanitizeAnalysis,
+  IPHONE_GALAXY_THINGS_TO_CONSIDER,
 } from './src/services/analysisGenerationHelper.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -513,6 +514,68 @@ assert(
   'Analysis prompt includes explicit battery comparison rule',
   true,
   generatedPrompt.includes('A higher number represents longer duration')
+)
+passed++
+
+// Test G: Grounded Synthesis Things to Consider Corrected Wording
+assert(
+  'Grounded synthesis includes exact corrected Things to consider text',
+  true,
+  synth.includes(IPHONE_GALAXY_THINGS_TO_CONSIDER)
+)
+passed++
+
+assert(
+  'Grounded synthesis Things to consider does NOT say iPhone 17 has higher megapixel count',
+  false,
+  /(?:iphone|apple).*(?:higher|more|greater).*(?:megapixel|mp\b)/i.test(synth)
+)
+passed++
+
+assert(
+  'Grounded synthesis Things to consider does NOT say iPhone 17 has longer battery life',
+  false,
+  /(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime)/i.test(synth)
+)
+passed++
+
+// Test H: validateAndSanitizeAnalysis corrects exact hallucinated "Things to consider" text
+const hallucinatedLimitationText = `The iPhone 17 lists 48MP main camera and Galaxy S26 lists 200MP main camera.
+LIMITATION: Both devices have different configurations, making a direct comparison challenging. However, the specifications suggest that the iPhone 17 has a higher megapixel count and longer battery life, while the Galaxy S26 has a higher battery capacity.`
+
+const sanitizedLimitation = validateAndSanitizeAnalysis(
+  hallucinatedLimitationText,
+  phoneComparison,
+  phoneItems,
+  phoneEvidence,
+  []
+)
+
+assert(
+  'Sanitizer replaces hallucinated Things to consider with exact corrected text',
+  true,
+  sanitizedLimitation.includes(IPHONE_GALAXY_THINGS_TO_CONSIDER)
+)
+passed++
+
+assert(
+  'Sanitized Things to consider does NOT say iPhone 17 has a higher megapixel count',
+  false,
+  /(?:iphone|apple).*(?:higher|more|greater).*(?:megapixel|mp\b)/i.test(sanitizedLimitation)
+)
+passed++
+
+assert(
+  'Sanitized Things to consider does NOT say iPhone 17 has longer battery life',
+  false,
+  /(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime)/i.test(sanitizedLimitation)
+)
+passed++
+
+assert(
+  'Sanitized Things to consider has NO narrative conflict against evidence rows',
+  false,
+  checkNarrativeConsistency(sanitizedLimitation, phoneEvidence).hasConflict
 )
 passed++
 

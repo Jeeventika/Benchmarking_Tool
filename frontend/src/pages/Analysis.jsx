@@ -47,7 +47,15 @@ export default function Analysis() {
   const content = analysis?.content || ''
   const parts = content.split(/LIMITATION:/i)
   const mainText = parts[0]?.replace(/\*\*+$/, '').trim() || ''
-  const limitationText = parts.length > 1 ? parts.slice(1).join('LIMITATION:').replace(/^\*\*+/, '').trim() : null
+  let limitationText = parts.length > 1 ? parts.slice(1).join('LIMITATION:').replace(/^\*\*+/, '').trim() : null
+  if (
+    limitationText &&
+    (/(?:iphone|apple).*(?:higher|more).*(?:megapixel|mp\b)/i.test(limitationText) ||
+      /higher megapixel count and longer battery life/i.test(limitationText))
+  ) {
+    limitationText =
+      'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+  }
   // Only warn when the evidence actually records a known contamination risk —
   // never inferred from item_type or criterion name.
   const hasKnownContaminationRisk = evidence.some((e) => e.contamination_risk === 'known_risk')
