@@ -3,6 +3,11 @@ import { generateAnalysis } from './ollamaService.js'
 import { evaluateConfidenceScorecard } from './confidenceScorecardService.js'
 import { classifyClaims } from './claimsClassifierService.js'
 import { checkNarrativeConsistency } from './narrativeConsistencyService.js'
+import {
+  buildAnalysisPrompt,
+  generateGroundedAnalysisSynthesis,
+  validateAndSanitizeAnalysis,
+} from './analysisGenerationHelper.js'
 
 // ============================================================================
 // AUTHORITATIVE VERIFIED KNOWLEDGE BASE
@@ -846,33 +851,7 @@ export function evaluateCriterionComparability(criterion, evidenceList) {
 
 // Generate grounded analysis content using Ollama or safe fallback synthesis
 export async function createAnalysisContent(comparison, items, evidenceRows, comparabilityChecks) {
-  const itemNames = items.map((i) => i.name)
-  const criteria = comparison.criteria
-
-  const evidenceSummary = evidenceRows
-    .map(
-      (e) =>
-        `- ${e.item_name} on ${e.criterion}: "${e.result}" (Source: ${e.source_name}${
-          e.source_url ? ` · ${e.source_url}` : ''
-        })`
-    )
-    .join('\n')
-
-  const prompt = `You are an objective decision-support analysis system.
-Compare these options based STRICTLY on the retrieved source evidence below.
-Do NOT invent any facts, numbers, benchmark scores, or URLs from your own memory.
-If a criterion is unverified or marked "Reliable source not found", explicitly state that the evidence is insufficient to compare that dimension.
-
-Options: ${itemNames.join(' vs. ')}
-Goal: ${comparison.goal || 'General comparison'}
-Criteria: ${criteria.join(', ')}
-
-Retrieved Evidence:
-${evidenceSummary}
-
-Provide a concise, factual comparison (under 140 words).
-Conclude strictly with:
-LIMITATION: [State 1-2 practical limitations or caveats about the data].`
+  const prompt = buildAnalysisPrompt(comparison, items, evidenceRows)
 
   try {
     const timeoutPromise = new Promise((_, reject) =>
@@ -880,13 +859,16 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
     )
     const text = await Promise.race([generateAnalysis(prompt), timeoutPromise])
     if (text && typeof text === 'string' && text.trim().length > 0) {
-      let finalText = text.trim()
-      if (!finalText.includes('LIMITATION:')) {
-        finalText += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
-      }
-      const wrapped = new String(finalText)
-      wrapped.text = finalText
-      wrapped.content = finalText
+      const sanitized = validateAndSanitizeAnalysis(
+        text,
+        comparison,
+        items,
+        evidenceRows,
+        comparabilityChecks
+      )
+      const wrapped = new String(sanitized)
+      wrapped.text = sanitized
+      wrapped.content = sanitized
       wrapped.generatedBy = 'ollama'
       return wrapped
     }
@@ -895,37 +877,11 @@ LIMITATION: [State 1-2 practical limitations or caveats about the data].`
   }
 
   // High-quality grounded fallback synthesis
-  const hasUnverifiedAll = evidenceRows.length > 0 && evidenceRows.every(
-    (e) =>
-      e.evidence_status === 'needs_review' ||
-      (e.source_name && e.source_name.includes('Unverified')) ||
-      (e.result && e.result.includes('Reliable source not found'))
-  )
-
-  const factsText = items
-    .map((item) => {
-      const itemEv = evidenceRows.filter((e) => e.comparison_item_id === item.id)
-      const details = itemEv.map((e) => `${e.criterion}: ${e.result}`).join('; ')
-      return `${item.name} reports: ${details}.`
-    })
-    .join(' ')
-
-  let limitationStatement =
-    'LIMITATION: This analysis is grounded exclusively in the retrieved official specification data and primary disclosures. Operational conditions in production may vary.'
-
-  if (comparabilityChecks && comparabilityChecks.some((c) => c.status === 'not_comparable')) {
-    limitationStatement =
-      'LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.'
-  }
-
-  const analysisHeader = hasUnverifiedAll
-    ? 'Analysis based on available unverified source evidence:'
-    : 'Analysis based strictly on verified source evidence:'
-
-  const fallbackText = (
-    `${analysisHeader}\n\n` +
-    `${factsText}\n\n` +
-    limitationStatement
+  const fallbackText = generateGroundedAnalysisSynthesis(
+    comparison,
+    items,
+    evidenceRows,
+    comparabilityChecks
   )
 
   const wrapped = new String(fallbackText)

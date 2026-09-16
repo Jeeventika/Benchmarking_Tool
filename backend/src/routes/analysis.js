@@ -3,6 +3,10 @@ import { pool } from '../db/pool.js'
 import { getAnalysisForComparison, generateAndSaveAnalysis } from '../services/analysisService.js'
 import { generateAnalysis } from '../services/ollamaService.js'
 import { checkNarrativeConsistency } from '../services/narrativeConsistencyService.js'
+import {
+  buildAnalysisPrompt,
+  validateAndSanitizeAnalysis,
+} from '../services/analysisGenerationHelper.js'
 
 const router = Router()
 
@@ -18,7 +22,7 @@ router.get('/:id/analysis', async (req, res) => {
       analysis = await generateAndSaveAnalysis(req.params.id)
     } else if (analysis.generated_by === 'fallback' || analysis.generated_by === 'system_fallback') {
       // Stored analysis is a fallback. Attempt to regenerate with Ollama now
-      // that it may be available, using the same prompt as generateAndSaveAnalysis.
+      // that it may be available, using the evidence-grounded prompt.
       try {
         const compResult = await pool.query(
           'SELECT id, item_type, goal, criteria FROM comparisons WHERE id = $1',
@@ -32,50 +36,51 @@ router.get('/:id/analysis', async (req, res) => {
         if (compResult.rows.length > 0 && itemsResult.rows.length > 0) {
           const comparison = compResult.rows[0]
           const items = itemsResult.rows
-          const itemNames = items.map((i) => i.name)
-          const criteria = Array.isArray(comparison.criteria)
-            ? comparison.criteria
-            : JSON.parse(comparison.criteria || '[]')
 
-          // Same prompt used by generateAndSaveAnalysis in analysisService.js
-          const prompt = `Compare the following ${comparison.item_type || 'options'}: ${itemNames.join(', ')}.\nGoal: ${comparison.goal || 'General comparison'}.\nCriteria: ${criteria.join(', ')}.\nProvide an objective, concise comparison (under 150 words). End your response with "LIMITATION:" followed by any key limitations the user should consider.`
+          // Fetch evidence rows first to ground the prompt
+          const evidenceResult = await pool.query(
+            `SELECT ci.name AS item_name, e.criterion, e.result
+             FROM evidence e
+             JOIN comparison_items ci ON ci.id = e.comparison_item_id
+             WHERE ci.comparison_id = $1
+             ORDER BY ci.id, e.criterion, e.id`,
+            [req.params.id]
+          )
+          const evidenceRows = evidenceResult.rows
+
+          const prompt = buildAnalysisPrompt(comparison, items, evidenceRows)
 
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Ollama timeout')), 25000)
           )
-          let content = await Promise.race([generateAnalysis(prompt), timeoutPromise])
-          if (!content.includes('LIMITATION:')) {
-            content += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
-          }
+          const rawContent = await Promise.race([generateAnalysis(prompt), timeoutPromise])
+          const content = validateAndSanitizeAnalysis(
+            rawContent,
+            comparison,
+            items,
+            evidenceRows,
+            []
+          )
 
           // Recalculate narrative consistency against the current evidence.
-const evidenceResult = await pool.query(
-  `SELECT ci.name AS item_name, e.criterion, e.result
-   FROM evidence e
-   JOIN comparison_items ci ON ci.id = e.comparison_item_id
-   WHERE ci.comparison_id = $1
-   ORDER BY ci.id, e.criterion, e.id`,
-  [req.params.id]
-)
+          const narrativeCheck = checkNarrativeConsistency(
+            content,
+            evidenceRows
+          )
 
-const narrativeCheck = checkNarrativeConsistency(
-  content,
-  evidenceResult.rows
-)
+          const disagreementFlag = narrativeCheck.hasConflict
 
-const disagreementFlag = narrativeCheck.hasConflict
-
-// Persist the new Ollama-generated analysis and refreshed conflict flag.
-const { rows } = await pool.query(
-  `UPDATE analyses
-   SET content = $1,
-       disagreement_flag = $2,
-       generated_by = 'ollama',
-       created_at = NOW()
-   WHERE comparison_id = $3
-   RETURNING id, content, disagreement_flag, generated_by, claims, created_at`,
-  [content, disagreementFlag, req.params.id]
-)
+          // Persist the new Ollama-generated analysis and refreshed conflict flag.
+          const { rows } = await pool.query(
+            `UPDATE analyses
+             SET content = $1,
+                 disagreement_flag = $2,
+                 generated_by = 'ollama',
+                 created_at = NOW()
+             WHERE comparison_id = $3
+             RETURNING id, content, disagreement_flag, generated_by, claims, created_at`,
+            [content, disagreementFlag, req.params.id]
+          )
 
           if (rows.length > 0) {
             analysis = rows[0]

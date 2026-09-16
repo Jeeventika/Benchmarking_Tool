@@ -95,10 +95,46 @@ async function run() {
   console.log('Evidence Sample:')
   res1.evidence.forEach(e => console.log(`  [${e.item_name}] ${e.criterion}: "${e.result.slice(0, 60)}..." | Source: ${e.source_name} | URL: ${e.source_url}`))
   const unverified1 = res1.evidence.filter(e => e.result.includes('Reliable source not found'))
-  console.log(`Unverified rows in Test 1: ${unverified1.length} (Expected: 0)\n`)
+  console.log(`Unverified rows in Test 1: ${unverified1.length} (Expected: 0)`)
   if (unverified1.length !== 0) {
-  throw new Error(`TEST 1 FAILED: Expected 0 unverified rows, got ${unverified1.length}`)
-}
+    throw new Error(`TEST 1 FAILED: Expected 0 unverified rows, got ${unverified1.length}`)
+  }
+
+  // Verify AI-generated analysis correctness and neutrality
+  if (!res1.analysis || !res1.analysis.content) {
+    throw new Error('TEST 1 FAILED: Missing analysis content')
+  }
+  console.log('AI Analysis Content Preview:\n ', res1.analysis.content.slice(0, 150) + '...\n')
+
+  if (/(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime)/i.test(res1.analysis.content)) {
+    throw new Error('TEST 1 FAILED: Analysis incorrectly claims iPhone has longer battery life')
+  }
+  if (!res1.analysis.content.includes('Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17')) {
+    throw new Error('TEST 1 FAILED: Analysis missing accurate battery comparison (30h vs 27h)')
+  }
+  if (!res1.analysis.content.includes('directly comparable if the testing conditions differ')) {
+    throw new Error('TEST 1 FAILED: Analysis missing battery testing conditions caveat')
+  }
+  if (/\b(?:better|superior|best)\s+camera\b/i.test(res1.analysis.content)) {
+    throw new Error('TEST 1 FAILED: Analysis claims one camera is objectively better')
+  }
+  if (!res1.analysis.content.includes('Camera quality cannot be determined from megapixel counts and specifications alone')) {
+    throw new Error('TEST 1 FAILED: Analysis missing camera neutrality statement')
+  }
+  if (!res1.analysis.content.includes('LIMITATION:')) {
+    throw new Error('TEST 1 FAILED: Analysis missing LIMITATION section')
+  }
+
+  // Verify Claims Classifier: 6 grounded · 0 unverified
+  const claims1 = Array.isArray(res1.analysis.claims)
+    ? res1.analysis.claims
+    : JSON.parse(res1.analysis.claims || '[]')
+  const grounded1 = claims1.filter(c => c.status === 'grounded')
+  const unverifiedClaims1 = claims1.filter(c => c.status !== 'grounded')
+  console.log(`Claims Classifier: ${grounded1.length} grounded · ${unverifiedClaims1.length} unverified (Expected: 6 grounded · 0 unverified)\n`)
+  if (grounded1.length !== 6 || unverifiedClaims1.length !== 0) {
+    throw new Error(`TEST 1 FAILED: Expected 6 grounded · 0 unverified, got ${grounded1.length} grounded · ${unverifiedClaims1.length} unverified`)
+  }
 
   // TEST 2: Natural-language comparison without explicit criteria
   console.log('--- TEST 2: Natural-language comparison without explicit criteria ---');

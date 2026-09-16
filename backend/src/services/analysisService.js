@@ -1,6 +1,11 @@
 import { pool } from '../db/pool.js'
 import { generateAnalysis } from './ollamaService.js'
 import { checkNarrativeConsistency } from './narrativeConsistencyService.js'
+import {
+  buildAnalysisPrompt,
+  generateGroundedAnalysisSynthesis,
+  validateAndSanitizeAnalysis,
+} from './analysisGenerationHelper.js'
 
 // Reads generated analysis for a comparison. Always keep this labeled in
 // the UI as "Analysis based on the available evidence" — never presented
@@ -51,23 +56,7 @@ export async function generateAndSaveAnalysis(comparisonId) {
         ? comparison.criteria
         : JSON.parse(comparison.criteria || '[]')
 
-      const prompt = `Compare the following ${comparison.item_type || 'options'}: ${itemNames.join(', ')}.\nGoal: ${comparison.goal || 'General comparison'}.\nCriteria: ${criteria.join(', ')}.\nProvide an objective, concise comparison (under 150 words). End your response with "LIMITATION:" followed by any key limitations the user should consider.`
-
-      let content = ''
-      let generatedBy = 'ollama'
-
-      try {
-        content = await generateAnalysis(prompt)
-        if (!content.includes('LIMITATION:')) {
-          content += '\n\nLIMITATION: This analysis is based on available information for this comparison. Review individual items and criteria before deciding.'
-        }
-      } catch (err) {
-        // Safe error logging — never log raw prompt or sensitive content
-        console.error('Ollama analysis generation failed, using safe fallback')
-        generatedBy = 'system_fallback'
-        content = `Analysis based on the available information: Comparing ${itemNames.join(' vs. ')} for the goal "${comparison.goal || 'comparison'}" across criteria: ${criteria.join(', ')}.\n\nLIMITATION: Detailed source evidence has not yet been recorded for this newly created comparison.`
-      }
-      // Check generated analysis against the current source evidence.
+      // Fetch evidence rows FIRST to ground the prompt and fallback
       const evidenceResult = await pool.query(
         `SELECT ci.name AS item_name, e.criterion, e.result
          FROM evidence e
@@ -76,10 +65,26 @@ export async function generateAndSaveAnalysis(comparisonId) {
          ORDER BY ci.id, e.criterion, e.id`,
         [comparisonId]
       )
+      const evidenceRows = evidenceResult.rows
+
+      const prompt = buildAnalysisPrompt(comparison, items, evidenceRows)
+
+      let content = ''
+      let generatedBy = 'ollama'
+
+      try {
+        content = await generateAnalysis(prompt)
+        content = validateAndSanitizeAnalysis(content, comparison, items, evidenceRows, [])
+      } catch (err) {
+        // Safe error logging — never log raw prompt or sensitive content
+        console.error('Ollama analysis generation failed, using safe fallback')
+        generatedBy = 'system_fallback'
+        content = generateGroundedAnalysisSynthesis(comparison, items, evidenceRows, [])
+      }
 
       const narrativeCheck = checkNarrativeConsistency(
         content,
-        evidenceResult.rows
+        evidenceRows
       )
 
       const disagreementFlag = narrativeCheck.hasConflict
