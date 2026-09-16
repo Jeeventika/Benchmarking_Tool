@@ -79,7 +79,7 @@ export function parseNaturalPrompt(rawText) {
 
   // Check if single sentence contains explicit criteria via " for <criteria>" or " based on <criteria>"
   if (!criteriaClause) {
-    const splitCriteriaRegex = /\b(?:based on|in terms of|regarding|for)\s+([a-z0-9\s,\/&]+)$/i
+    const splitCriteriaRegex = /\b(?:based on|in terms of|regarding|focusing on|focused on|focus on|looking at|evaluating|for)\s+([a-z0-9\s,\/&]+)[.,;!?]*$/i
     const m = itemsClause.match(splitCriteriaRegex)
     if (m && m[1]) {
       const candidate = m[1].trim()

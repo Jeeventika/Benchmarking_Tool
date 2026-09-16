@@ -99,6 +99,60 @@ router.get('/:id/analysis', async (req, res) => {
       return res.status(404).json({ error: 'No analysis found for this comparison' })
     }
 
+    // Ensure cached/stored analysis content is sanitized on read (BUG 9)
+    try {
+      const compResult = await pool.query(
+        'SELECT id, item_type, goal, criteria FROM comparisons WHERE id = $1',
+        [req.params.id]
+      )
+      const itemsResult = await pool.query(
+        'SELECT id, name FROM comparison_items WHERE comparison_id = $1 ORDER BY id',
+        [req.params.id]
+      )
+      const evidenceResult = await pool.query(
+        `SELECT ci.name AS item_name, e.criterion, e.result, e.evidence_status, e.source_name, e.source_url
+         FROM evidence e
+         JOIN comparison_items ci ON ci.id = e.comparison_item_id
+         WHERE ci.comparison_id = $1
+         ORDER BY ci.id, e.criterion, e.id`,
+        [req.params.id]
+      )
+
+      if (compResult.rows.length > 0 && itemsResult.rows.length > 0) {
+        const comparison = compResult.rows[0]
+        const items = itemsResult.rows
+        const evidenceRows = evidenceResult.rows
+
+        const sanitized = validateAndSanitizeAnalysis(
+          analysis.content,
+          comparison,
+          items,
+          evidenceRows,
+          []
+        )
+
+        if (sanitized !== analysis.content) {
+          const narrativeCheck = checkNarrativeConsistency(sanitized, evidenceRows)
+          const { rows } = await pool.query(
+            `UPDATE analyses
+             SET content = $1,
+                 disagreement_flag = $2
+             WHERE id = $3
+             RETURNING id, content, disagreement_flag, generated_by, claims, created_at`,
+            [sanitized, narrativeCheck.hasConflict, analysis.id]
+          )
+          if (rows.length > 0) {
+            analysis = rows[0]
+          } else {
+            analysis.content = sanitized
+            analysis.disagreement_flag = narrativeCheck.hasConflict
+          }
+        }
+      }
+    } catch (sanitizeErr) {
+      console.error('Failed on-read sanitization check', { message: sanitizeErr.message })
+    }
+
     res.json(analysis)
   } catch (err) {
     console.error('Failed to load analysis', { message: err.message })

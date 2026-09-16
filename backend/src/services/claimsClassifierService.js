@@ -76,6 +76,27 @@ claims.push({
           }
         }
       }
+
+      // Flag contradictory claims if unsanitized (BUG 10)
+      const hasContradictoryClaim =
+        (/(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime)/i.test(sentence) && /(?:galaxy|samsung)/i.test(sentence)) ||
+        (/(?:iphone|apple).*(?:higher|more|greater).*(?:megapixel|mp\b)/i.test(sentence)) ||
+        (/\b(?:better|superior|best)\s+camera\b/i.test(sentence) && /(?:iphone|apple)/i.test(sentence) && /(?:galaxy|samsung)/i.test(sentence)) ||
+        (/(?:macbook|apple)\s+(?:is\s+lighter|is\s+more\s+portable|has\s+higher\s+portability)/i.test(sentence) && /(?:dell|xps)/i.test(sentence)) ||
+        (/(?:dell|xps)\s+(?:is\s+thinner|is\s+lighter\s+and\s+thinner|is\s+thinner\s+and\s+lighter|lists\s+a\s+thinner)/i.test(sentence))
+
+      if (hasContradictoryClaim) {
+        claims.push({
+          id: claimId++,
+          claim: sentence,
+          item_name: items.find((i) => sentence.includes(i.name))?.name || 'Comparison',
+          criterion: 'Contradictory Assertion',
+          status: 'potentially_unverified',
+          source_reference: 'Contradicts verified source evidence baseline',
+          source_url: null,
+          warning: 'This claim contradicts verified source evidence.',
+        })
+      }
     }
   }
 

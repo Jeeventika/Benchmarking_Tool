@@ -24,6 +24,7 @@ import {
   generateGroundedAnalysisSynthesis,
   validateAndSanitizeAnalysis,
   IPHONE_GALAXY_THINGS_TO_CONSIDER,
+  MACBOOK_DELL_THINGS_TO_CONSIDER,
 } from './src/services/analysisGenerationHelper.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -578,6 +579,250 @@ assert(
   checkNarrativeConsistency(sanitizedLimitation, phoneEvidence).hasConflict
 )
 passed++
+
+// ── MACBOOK AIR VS DELL XPS RUNTIME ASSERTIONS (BUGS 4, 5, 6, 7, 8) ────────
+console.log('\n══════════════════════════════════════════════════════════════════')
+console.log('AI-GENERATED ANALYSIS: MACBOOK AIR VS DELL XPS (BUGS 4 - 8)')
+console.log('══════════════════════════════════════════════════════════════════\n')
+
+const laptopComparison = {
+  id: 2,
+  item_type: 'laptop',
+  goal: 'Compare MacBook Air and Dell XPS for a student focusing on battery life, portability, performance, display quality and price.',
+  criteria: ['Battery Life', 'Portability', 'Performance', 'Display Quality', 'Price'],
+}
+
+const laptopItems = [
+  { id: 201, name: 'MacBook Air' },
+  { id: 202, name: 'Dell XPS' },
+]
+
+const laptopEvidence = [
+  {
+    comparison_item_id: 201,
+    item_name: 'MacBook Air',
+    criterion: 'Battery Life',
+    result: 'Up to 18 hours battery life (Apple TV app movie playback and wireless web browsing)',
+    source_name: 'Apple Official Technical Specifications & Battery Testing',
+    source_url: 'https://www.apple.com/macbook-air/specs/',
+  },
+  {
+    comparison_item_id: 201,
+    item_name: 'MacBook Air',
+    criterion: 'Portability',
+    result: '2.70 pounds (1.24 kg) weight with 0.44-inch (1.13 cm) slim unibody aluminum enclosure',
+    source_name: 'Apple Official Technical Specifications (Size and Weight)',
+    source_url: 'https://www.apple.com/macbook-air/specs/',
+  },
+  {
+    comparison_item_id: 201,
+    item_name: 'MacBook Air',
+    criterion: 'Performance',
+    result: 'Apple M3 chip with 8-core CPU (4 performance and 4 efficiency cores) and hardware-accelerated ray tracing',
+    source_name: 'Apple Official Technical Specifications (Chip Architecture)',
+    source_url: 'https://www.apple.com/macbook-air/specs/',
+  },
+  {
+    comparison_item_id: 201,
+    item_name: 'MacBook Air',
+    criterion: 'Display Quality',
+    result: '13.6-inch Liquid Retina display with 2560x1664 native resolution at 224 ppi with 500 nits brightness',
+    source_name: 'Apple Official Technical Specifications (Display Section)',
+    source_url: 'https://www.apple.com/macbook-air/specs/',
+  },
+  {
+    comparison_item_id: 201,
+    item_name: 'MacBook Air',
+    criterion: 'Price',
+    result: '$1,099 starting retail price for base configuration (8-core CPU / 8-core GPU / 256GB SSD)',
+    source_name: 'Apple Official Store Education and Retail Pricing',
+    source_url: 'https://www.apple.com/shop/buy-mac/macbook-air/13-inch-m3',
+  },
+  {
+    comparison_item_id: 202,
+    item_name: 'Dell XPS',
+    criterion: 'Battery Life',
+    result: 'Up to 18 hours battery life on FHD+ display configuration with 55Wh battery',
+    source_name: 'Dell Official Technical Specifications & MobileMark Benchmarks',
+    source_url: 'https://www.dell.com/en-us/shop/dell-laptops/xps-13-laptop/spd/xps-13-9340-laptop',
+  },
+  {
+    comparison_item_id: 202,
+    item_name: 'Dell XPS',
+    criterion: 'Portability',
+    result: '2.60 pounds (1.17 kg) starting weight with 0.60-inch (15.3 mm) CNC machined aluminum chassis',
+    source_name: 'Dell Official Dimensions & Weight Guide',
+    source_url: 'https://www.dell.com/en-us/shop/dell-laptops/xps-13-laptop/spd/xps-13-9340-laptop',
+  },
+  {
+    comparison_item_id: 202,
+    item_name: 'Dell XPS',
+    criterion: 'Performance',
+    result: 'Intel Core Ultra 7 155H (16 cores, up to 4.8 GHz) with Intel Arc Graphics and integrated NPU',
+    source_name: 'Dell Official Technical Specifications (Processor Details)',
+    source_url: 'https://www.dell.com/en-us/shop/dell-laptops/xps-13-laptop/spd/xps-13-9340-laptop',
+  },
+  {
+    comparison_item_id: 202,
+    item_name: 'Dell XPS',
+    criterion: 'Display Quality',
+    result: '13.4-inch InfinityEdge display with 1920x1200 FHD+ resolution at 500 nits and 120Hz refresh rate',
+    source_name: 'Dell Official Display Specifications',
+    source_url: 'https://www.dell.com/en-us/shop/dell-laptops/xps-13-laptop/spd/xps-13-9340-laptop',
+  },
+  {
+    comparison_item_id: 202,
+    item_name: 'Dell XPS',
+    criterion: 'Price',
+    result: '$1,299 starting retail price for base configuration (Core Ultra 7 / 16GB RAM / 512GB SSD)',
+    source_name: 'Dell Official Store Pricing Schedule',
+    source_url: 'https://www.dell.com/en-us/shop/dell-laptops/xps-13-laptop/spd/xps-13-9340-laptop',
+  },
+]
+
+// Test I: Grounded Synthesis for MacBook Air vs Dell XPS
+const mbSynth = generateGroundedAnalysisSynthesis(laptopComparison, laptopItems, laptopEvidence, [])
+
+// 1. BUG 4: Battery Life (Both 18 hours, never claim one is longer/better)
+assert(
+  'Grounded synthesis states both laptops listed at up to 18 hours battery life',
+  true,
+  mbSynth.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life, although testing conditions may differ.')
+)
+passed++
+
+assert(
+  'Grounded synthesis does NOT claim either laptop has longer or better battery life',
+  false,
+  /(?:macbook|dell|xps).*(?:longer|more|better|greater|superior).*(?:battery|runtime)/i.test(mbSynth)
+)
+passed++
+
+// 2. BUG 5: Portability (Dell 2.60 lbs, MacBook 0.44 in, never claim MacBook is lighter or Dell is thinner)
+assert(
+  'Grounded synthesis includes correct portability trade-off (Dell 2.60 lbs, MacBook 0.44 in)',
+  true,
+  mbSynth.includes('The Dell XPS has a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Portability depends on both weight, thickness, and user preference.')
+)
+passed++
+
+assert(
+  'Grounded synthesis does NOT claim MacBook Air is lighter',
+  false,
+  /(?:macbook|apple).*(?:lighter|more portable)/i.test(mbSynth)
+)
+passed++
+
+assert(
+  'Grounded synthesis does NOT claim Dell XPS is thinner',
+  false,
+  /(?:dell|xps)\s+(?:is|lists\s+a)\s+thinner/i.test(mbSynth)
+)
+passed++
+
+// 3. BUG 6: Display Quality (Resolution vs 120Hz, no superior claim)
+assert(
+  'Grounded synthesis states displays differ in resolution and refresh rate',
+  true,
+  mbSynth.includes('The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the user’s needs.')
+)
+passed++
+
+assert(
+  'Grounded synthesis does NOT claim superior or best display quality',
+  false,
+  /\b(?:better|superior|best)\s+display\b/i.test(mbSynth)
+)
+passed++
+
+// 4. BUG 7: Performance / Processor
+assert(
+  'Grounded synthesis states performance cannot be determined from processor names alone',
+  true,
+  mbSynth.includes('The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions.')
+)
+passed++
+
+// 5. BUG 8: Price Precision (MacBook Air $1,099 vs Dell XPS $1,299, baseline configurations differ)
+assert(
+  'Grounded synthesis notes lower starting price for MacBook Air and differing baseline configurations',
+  true,
+  mbSynth.includes('The MacBook Air has a lower starting price at $1,099, compared with $1,299 for the Dell XPS. Baseline configurations and storage options may differ.')
+)
+passed++
+
+// 6. Things to consider for MacBook Air vs Dell XPS
+assert(
+  'Grounded synthesis includes MACBOOK_DELL_THINGS_TO_CONSIDER',
+  true,
+  mbSynth.includes(MACBOOK_DELL_THINGS_TO_CONSIDER)
+)
+passed++
+
+// 7. No narrative conflicts in MacBook Air vs Dell XPS synthesis
+assert(
+  'Grounded synthesis for MacBook Air vs Dell XPS has NO narrative conflict',
+  false,
+  checkNarrativeConsistency(mbSynth, laptopEvidence).hasConflict
+)
+passed++
+
+// Test J: validateAndSanitizeAnalysis corrects misleading claims for MacBook Air vs Dell XPS
+const misleadingLaptopText = `The MacBook Air provides superior battery life lasting longer than Dell XPS.
+The MacBook Air is lighter than the Dell XPS and Dell is thinner.
+Dell XPS provides superior display quality. The M3 chip delivers superior performance.
+LIMITATION: Both laptops are great.`
+
+const sanitizedLaptop = validateAndSanitizeAnalysis(
+  misleadingLaptopText,
+  laptopComparison,
+  laptopItems,
+  laptopEvidence,
+  []
+)
+
+assert(
+  'Sanitizer corrects misleading laptop battery claim to equal 18 hours',
+  true,
+  sanitizedLaptop.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life, although testing conditions may differ.')
+)
+passed++
+
+assert(
+  'Sanitizer corrects misleading portability claims',
+  true,
+  sanitizedLaptop.includes('The Dell XPS has a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Portability depends on both weight, thickness, and user preference.')
+)
+passed++
+
+assert(
+  'Sanitizer corrects superior display claim',
+  true,
+  sanitizedLaptop.includes('The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the user’s needs.')
+)
+passed++
+
+assert(
+  'Sanitizer corrects superior performance claim',
+  true,
+  sanitizedLaptop.includes('The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions.')
+)
+passed++
+
+assert(
+  'Sanitizer injects MACBOOK_DELL_THINGS_TO_CONSIDER',
+  true,
+  sanitizedLaptop.includes(MACBOOK_DELL_THINGS_TO_CONSIDER)
+)
+passed++
+
+assert(
+  'Sanitized laptop analysis has NO narrative conflicts',
+  false,
+  checkNarrativeConsistency(sanitizedLaptop, laptopEvidence).hasConflict
+)
+passed++
+
 
 // ── summary ───────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════════════════════════')

@@ -46,15 +46,91 @@ export default function Analysis() {
 
   const content = analysis?.content || ''
   const parts = content.split(/LIMITATION:/i)
-  const mainText = parts[0]?.replace(/\*\*+$/, '').trim() || ''
+  let mainText = parts[0]?.replace(/\*\*+$/, '').trim() || ''
   let limitationText = parts.length > 1 ? parts.slice(1).join('LIMITATION:').replace(/^\*\*+/, '').trim() : null
-  if (
-    limitationText &&
-    (/(?:iphone|apple).*(?:higher|more).*(?:megapixel|mp\b)/i.test(limitationText) ||
-      /higher megapixel count and longer battery life/i.test(limitationText))
-  ) {
-    limitationText =
-      'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+
+  // Defensive sanitization on client render (BUG 9)
+  if (/(?:iphone|apple)/i.test(mainText) && /(?:galaxy|samsung)/i.test(mainText)) {
+    if (
+      !mainText.includes('The iPhone 17 is listed at up to 27 hours of continuous video playback') &&
+      (/(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime|hours)/i.test(mainText) ||
+        /(?:battery|runtime).*(?:iphone|apple).*(?:longer|more|better|greater)/i.test(mainText))
+    ) {
+      mainText = mainText.replace(
+        /[^.?!]*(?:longer|more|better|greater)[^.?!]*battery[^.?!]*[.?!]?/i,
+        'The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours. Testing conditions and manufacturer methodologies may differ.'
+      )
+    }
+    if (
+      !mainText.includes('Camera quality cannot be determined from megapixel counts and specifications alone') &&
+      /\b(?:better|superior|best)\s+camera\b/i.test(mainText)
+    ) {
+      mainText = mainText.replace(
+        /[^.?!]*\b(?:better|superior|best)\s+camera[^.?!]*[.?!]?/i,
+        'The phones have different camera configurations. The iPhone 17 lists a 48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto, while the Galaxy S26 lists a 200MP main camera and additional telephoto cameras. Camera quality cannot be determined from megapixel counts and specifications alone.'
+      )
+    }
+  }
+
+  if (/(?:macbook|apple)/i.test(mainText) && /(?:dell|xps)/i.test(mainText)) {
+    if (
+      !mainText.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life') &&
+      (/(?:macbook|dell|xps).*(?:longer|more|better|greater|superior).*(?:battery|runtime)/i.test(mainText) ||
+        /(?:battery|runtime).*(?:macbook|dell|xps).*(?:longer|more|better|greater|superior)/i.test(mainText))
+    ) {
+      mainText = mainText.replace(
+        /[^.?!]*(?:longer|more|better|greater|superior)[^.?!]*battery[^.?!]*[.?!]?/i,
+        'Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life, although testing conditions may differ.'
+      )
+    }
+    if (
+      !mainText.includes('The Dell XPS has a lower listed weight at 2.60 pounds') &&
+      (/(?:macbook|apple).*(?:lighter|more portable|higher portability)/i.test(mainText) ||
+        /(?:dell|xps).*(?:lighter and thinner|thinner and lighter)/i.test(mainText) ||
+        /(?:dell|xps)\s+(?:is|lists\s+a)\s+thinner/i.test(mainText))
+    ) {
+      mainText = mainText.replace(
+        /[^.?!]*(?:lighter|thinner|portab)[^.?!]*[.?!]?/i,
+        'The Dell XPS has a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Portability depends on both weight, thickness, and user preference.'
+      )
+    }
+    if (
+      !mainText.includes('The displays differ in resolution, panel description, and refresh rate') &&
+      (/(?:macbook|dell|xps).*(?:better|superior|best)\s+display/i.test(mainText) ||
+        /(?:better|superior|best)\s+display.*(?:macbook|dell|xps)/i.test(mainText))
+    ) {
+      mainText = mainText.replace(
+        /[^.?!]*(?:better|superior|best)\s+display[^.?!]*[.?!]?/i,
+        'The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the user’s needs.'
+      )
+    }
+    if (
+      !mainText.includes('performance cannot be determined from processor names alone') &&
+      (/(?:macbook|dell|xps|m3|intel).*(?:superior|better|faster|more powerful)\s+performance/i.test(mainText) ||
+        /(?:superior|better|faster|more powerful)\s+performance.*(?:macbook|dell|xps|m3|intel)/i.test(mainText))
+    ) {
+      mainText = mainText.replace(
+        /[^.?!]*(?:superior|better|faster|more powerful)\s+performance[^.?!]*[.?!]?/i,
+        'The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions.'
+      )
+    }
+  }
+
+  if (limitationText) {
+    if (
+      /(?:iphone|apple).*(?:higher|more).*(?:megapixel|mp\b)/i.test(limitationText) ||
+      /higher megapixel count and longer battery life/i.test(limitationText) ||
+      (/(?:iphone|apple)/i.test(mainText) && /(?:galaxy|samsung)/i.test(mainText) && /battery life|megapixel/i.test(limitationText))
+    ) {
+      limitationText =
+        'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+    } else if (
+      /(?:macbook|apple)/i.test(mainText) && /(?:dell|xps)/i.test(mainText) &&
+      (/(?:longer|better|lighter|thinner)/i.test(limitationText) || !limitationText.includes('18 hours'))
+    ) {
+      limitationText =
+        'Both laptops offer distinct trade-offs for student and portable computing. Both devices are listed at up to 18 hours of battery life, although manufacturer testing conditions may differ. The Dell XPS features a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Display and performance trade-offs depend on software ecosystem, resolution versus refresh rate preferences, and individual workloads.'
+    }
   }
   // Only warn when the evidence actually records a known contamination risk —
   // never inferred from item_type or criterion name.

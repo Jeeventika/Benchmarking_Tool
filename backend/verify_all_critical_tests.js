@@ -155,10 +155,59 @@ async function run() {
   console.log('Evidence Sample:')
   res2.evidence.slice(0, 4).forEach(e => console.log(`  [${e.item_name}] ${e.criterion}: "${e.result.slice(0, 60)}..." | Source: ${e.source_name} | URL: ${e.source_url}`))
   const unverified2 = res2.evidence.filter(e => e.result.includes('Reliable source not found'))
-  console.log(`Unverified rows in Test 2: ${unverified2.length} (Expected: 0)\n`)
+  console.log(`Unverified rows in Test 2: ${unverified2.length} (Expected: 0)`)
   if (unverified2.length !== 0) {
-  throw new Error(`TEST 2 FAILED: Expected 0 unverified rows, got ${unverified2.length}`)
-}
+    throw new Error(`TEST 2 FAILED: Expected 0 unverified rows, got ${unverified2.length}`)
+  }
+
+  // Verify MacBook Air vs Dell XPS analysis neutrality (BUGS 4, 5, 6, 7, 8)
+  if (!res2.analysis || !res2.analysis.content) {
+    throw new Error('TEST 2 FAILED: Missing analysis content')
+  }
+  console.log('AI Analysis Content Preview (Test 2):\n ', res2.analysis.content.slice(0, 150) + '...\n')
+
+  if (!res2.analysis.content.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life')) {
+    throw new Error('TEST 2 FAILED: Analysis missing equal 18-hour battery comparison')
+  }
+  if (!res2.analysis.content.includes('2.60 pounds') || !res2.analysis.content.includes('0.44-inch')) {
+    throw new Error('TEST 2 FAILED: Analysis missing correct portability trade-off (2.60 lbs vs 0.44 in)')
+  }
+  if (!res2.analysis.content.includes('120Hz')) {
+    throw new Error('TEST 2 FAILED: Analysis missing display refresh rate / resolution trade-off')
+  }
+  if (!res2.analysis.content.includes('performance cannot be determined from processor names alone')) {
+    throw new Error('TEST 2 FAILED: Analysis missing neutral performance statement')
+  }
+  if (!res2.analysis.content.includes('1,099') || !res2.analysis.content.includes('1,299')) {
+    throw new Error('TEST 2 FAILED: Analysis missing starting prices for MacBook Air and Dell XPS')
+  }
+  if (!res2.analysis.content.includes('Both laptops offer distinct trade-offs for student and portable computing')) {
+    throw new Error('TEST 2 FAILED: Analysis missing corrected Things to consider for MacBook Air and Dell XPS')
+  }
+
+  // TEST 2B: Explicit student focus prompt parsing and analysis
+  console.log('--- TEST 2B: Explicit student criteria prompt ---');
+  const prompt2B = 'Compare MacBook Air and Dell XPS for a student focusing on battery life, portability, performance, display quality and price.'
+  console.log(`Prompt: "${prompt2B}"`);
+  const id2B = await createComp({ prompt: prompt2B })
+  const res2B = await inspectComp(id2B)
+  console.log('Identified Items:', res2B.items.map(i => i.name))
+  console.log('Criteria:', res2B.comparison.criteria)
+  if (res2B.items.length !== 2 || !res2B.items.some(i => /macbook/i.test(i.name)) || !res2B.items.some(i => /dell/i.test(i.name))) {
+    throw new Error(`TEST 2B FAILED: Failed to extract MacBook Air and Dell XPS as items. Got: ${res2B.items.map(i => i.name)}`)
+  }
+  const unverified2B = res2B.evidence.filter(e => e.result.includes('Reliable source not found'))
+  console.log(`Unverified rows in Test 2B: ${unverified2B.length} (Expected: 0)`)
+  if (unverified2B.length !== 0) {
+    throw new Error(`TEST 2B FAILED: Expected 0 unverified rows, got ${unverified2B.length}`)
+  }
+  if (!res2B.analysis.content.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life')) {
+    throw new Error('TEST 2B FAILED: Analysis missing equal 18-hour battery comparison')
+  }
+  if (!res2B.analysis.content.includes('Both laptops offer distinct trade-offs for student and portable computing')) {
+    throw new Error('TEST 2B FAILED: Analysis missing Things to consider')
+  }
+  console.log('Test 2B verified successfully.\n')
 
   // TEST 3: Three-item comparison
   console.log('--- TEST 3: Three-item comparison ---');
