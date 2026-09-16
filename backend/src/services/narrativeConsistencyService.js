@@ -9,6 +9,13 @@
 // Rules:
 //  - Only fires when the narrative makes a comparable numeric/factual claim
 //    for the same item AND criterion AND unit in the same sentence/clause.
+//  - Multi-product sentences: accurately attributes measurements to the
+//    governing item based on token order, clause conjunctions, and proximity,
+//    preventing cross-item false contradictions in combined sentences.
+//  - Multi-value criteria (e.g. camera systems): matches measurements by
+//    component descriptors (main, ultra_wide, telephoto, front, macro, depth)
+//    across multi-row and combined-string evidence rows without cross-component
+//    conflict.
 //  - Does NOT fire merely because the evidence number is absent from narrative.
 //  - Does NOT fire for a different item or unrelated criterion.
 //  - Does NOT fire for a different unit (e.g. camera MP vs battery hours).
@@ -81,24 +88,24 @@ const MEASUREMENT_UNIT_PATTERN =
   /(?<!\d)(\d+(?:\.\d+)?)\s*(hours?|hrs?|wh|gb|tb|mb|ghz|mhz|mp|megapixels?|fps|nits?|ms|mm|cm|kg|lbs?|lb|inches?|in|%|dollars?|\$|usd|eur|mph|km\/h|watts?|mah)\b/gi
 
 /**
- * Extract the primary measurement value and its canonical unit from an
- * evidence result string.  Returns { value, canonicalUnit } if a measurement
- * is found, or null otherwise.
+ * Detect camera component descriptor from surrounding context phrase.
+ * Returns normalized component identifier:
+ *   'ultra_wide' | 'telephoto' | 'front' | 'macro' | 'depth' | 'main' | null
  *
- * We only proceed for evidence rows that contain explicit units so that
- * product version numbers (e.g. "iOS 19") are not mistaken for measurements.
- *
- * @param {string} result
- * @returns {{ value: number, canonicalUnit: string }|null}
+ * @param {string} text
+ * @returns {string|null}
  */
-function extractMeasurementFromEvidence(result) {
-  if (!result || typeof result !== 'string') return null
-  const re = new RegExp(MEASUREMENT_UNIT_PATTERN.source, 'gi')
-  const m = re.exec(result)
-  if (!m) return null
-  const cu = canonicalUnit(m[2])
-  if (!cu) return null
-  return { value: parseFloat(m[1]), canonicalUnit: cu }
+function detectCameraComponent(text) {
+  if (!text || typeof text !== 'string') return null
+  const lower = text.toLowerCase()
+  // Check ultra-wide first so 'wide' doesn't greedily capture 'ultra wide'
+  if (/\b(?:ultra[-\s]?wide|ultrawide)\b/i.test(lower)) return 'ultra_wide'
+  if (/\b(?:telephoto|tele|periscope|zoom)\b/i.test(lower)) return 'telephoto'
+  if (/\b(?:front|selfie)\b/i.test(lower)) return 'front'
+  if (/\b(?:macro)\b/i.test(lower)) return 'macro'
+  if (/\b(?:depth|tof|lidar)\b/i.test(lower)) return 'depth'
+  if (/\b(?:main|primary|fusion|wide)\b/i.test(lower)) return 'main'
+  return null
 }
 
 /**
@@ -111,11 +118,6 @@ function extractMeasurementFromEvidence(result) {
  * @returns {string[]}  Array of lower-cased clause strings
  */
 function splitIntoSentences(text) {
-  // Split on sentence-ending punctuation, newlines, and semicolons.
-  // A period is treated as a sentence boundary ONLY when it is NOT surrounded
-  // by digits on both sides (to preserve decimal values like 25.5).
-  // Strategy: replace "safe" sentence-end punctuation with a placeholder,
-  // then split on the placeholder.
   const SENTINEL = '\x00'
   const processed = text
     // Newlines and semicolons are always sentence boundaries
@@ -123,7 +125,6 @@ function splitIntoSentences(text) {
     // Period is a sentence boundary only when NOT between two digits
     .replace(/(?<!\d)\.(?!\d)/g, SENTINEL)
     // Also treat a period followed by a space + capital as a sentence boundary
-    // (e.g. "life. The" even though we work in lowercase later)
     .replace(/\.(?=\s)/g, SENTINEL)
   return processed
     .split(SENTINEL)
@@ -138,17 +139,7 @@ function splitIntoSentences(text) {
  *
  * For "Galaxy S26" the digit group is "26".  We build a pattern that matches
  * "s26" (the letter-prefix + digits) and replaces just the digit part with
- * spaces, leaving standalone "26 hours" untouched.
- *
- * Strategy:
- *   1. Find the sub-token in the item name that immediately precedes the digit
- *      group (the "letter prefix", e.g. "s" in "S26").
- *   2. In the sentence, replace occurrences where those digits appear right
- *      after that letter prefix.
- *
- * If the digit group appears at the very start of the item name (no letter
- * prefix) we do NOT strip it, because we cannot safely distinguish the model
- * number from a measurement value in that case.
+ * spaces, leaving standalone "26 hours" untouched and character offsets unchanged.
  *
  * @param {string} sentence   Lower-cased sentence text
  * @param {string} itemName   Original item name (e.g. "Galaxy S26")
@@ -156,25 +147,13 @@ function splitIntoSentences(text) {
  */
 function stripModelNumbers(sentence, itemName) {
   const itemLower = itemName.toLowerCase()
-
-  // Find each digit group in the item name along with its letter prefix
-  // Example: "galaxy s26" -> [{ digits: '26', letterPrefix: 's' }]
-  //          "iphone 17"  -> [{ digits: '17', letterPrefix: ' ' }] (space, skip)
-  //          "pixel 11"   -> [{ digits: '11', letterPrefix: ' ' }] (skip)
   const tokenRe = /([a-z]+)(\d+)/g
   let result = sentence
   let m
   while ((m = tokenRe.exec(itemLower)) !== null) {
-    const letterPrefix = m[1]   // e.g. 's' from 's26'
-    const digits = m[2]         // e.g. '26'
-
-    // Only strip when the digits immediately follow a known letter prefix from
-    // the item name.  We require at least one letter before the digits.
+    const letterPrefix = m[1]
+    const digits = m[2]
     if (!letterPrefix || letterPrefix.length === 0) continue
-
-    // Replace occurrences of <letterPrefix><digits> with <letterPrefix><spaces>
-    // in the sentence.  The digit portion is blanked; the letter prefix stays
-    // so keyword matching (e.g. "s" in "galaxy s26") is not disrupted.
     const re = new RegExp(`(?<=[a-z]*)${letterPrefix}${digits}(?!\\d)`, 'g')
     result = result.replace(re, letterPrefix + ' '.repeat(digits.length))
   }
@@ -182,58 +161,184 @@ function stripModelNumbers(sentence, itemName) {
 }
 
 /**
- * Extract all measurement-unit pairs (value + canonical unit) from a sentence.
- * Returns an array of { value, canonicalUnit } objects.
+ * Extract all measurement-unit pairs along with their canonical unit,
+ * character range, and surrounding component context from a text string.
  *
- * @param {string} sentence  Lower-cased sentence text
- * @returns {Array<{ value: number, canonicalUnit: string }>}
+ * @param {string} text
+ * @returns {Array<{ value: number, canonicalUnit: string, component: string|null, startIndex: number, endIndex: number, phrase: string }>}
  */
-function extractMeasurementsFromSentence(sentence) {
+function extractMeasurementsWithContext(text) {
   const results = []
   const re = new RegExp(MEASUREMENT_UNIT_PATTERN.source, 'gi')
   let m
-  while ((m = re.exec(sentence)) !== null) {
+  while ((m = re.exec(text)) !== null) {
     const cu = canonicalUnit(m[2])
-    if (cu) {
-      results.push({ value: parseFloat(m[1]), canonicalUnit: cu })
+    if (!cu) continue
+
+    const beforeText = text.slice(0, m.index)
+    const afterText = text.slice(m.index + m[0].length)
+
+    // Backward delimiter: comma, semicolon, clause conjunctions
+    const delimBefore = /[,;]|\b(?:and|or|while|whereas|with)\b/gi
+    let lastBeforeIndex = 0
+    let dm
+    while ((dm = delimBefore.exec(beforeText)) !== null) {
+      lastBeforeIndex = dm.index + dm[0].length
     }
+    const phraseStart = lastBeforeIndex
+
+    // Forward delimiter: comma, semicolon, period, clause conjunctions
+    const delimAfter = /[,;.]|\b(?:and|or|while|whereas|with)\b/gi
+    const afterMatch = delimAfter.exec(afterText)
+    const phraseEnd = afterMatch
+      ? m.index + m[0].length + afterMatch.index
+      : text.length
+
+    const phrase = text.slice(phraseStart, phraseEnd).trim()
+    const comp = detectCameraComponent(phrase)
+
+    results.push({
+      value: parseFloat(m[1]),
+      canonicalUnit: cu,
+      component: comp,
+      startIndex: m.index,
+      endIndex: m.index + m[0].length,
+      phrase,
+    })
   }
   return results
 }
 
 /**
- * Check whether any measurement in the (cleaned) sentence contradicts the
- * evidence value, using strict unit matching.
+ * Backward compatibility helper for callers expecting single measurement.
  *
- * Only measurements whose canonical unit matches the evidence canonical unit
- * are compared.  Measurements with a different unit are ignored entirely.
- *
- * @param {number} evidenceValue
- * @param {string} evidenceCanonicalUnit
- * @param {string} cleanedSentence
- * @returns {{ contradicted: boolean, narrativeValue: number|null }}
+ * @param {string} result
+ * @returns {{ value: number, canonicalUnit: string }|null}
  */
-function detectNumericContradiction(evidenceValue, evidenceCanonicalUnit, cleanedSentence) {
-  const measurements = extractMeasurementsFromSentence(cleanedSentence)
+function extractMeasurementFromEvidence(result) {
+  if (!result || typeof result !== 'string') return null
+  const measurements = extractMeasurementsWithContext(result)
+  return measurements.length > 0 ? measurements[0] : null
+}
 
-  // No measurements found — no contradiction
-  if (measurements.length === 0) {
-    return { contradicted: false, narrativeValue: null }
+/**
+ * Determine which measurements in a sentence belong to a specific target item.
+ * Accurately handles same-sentence multi-product comparisons by attributing
+ * measurements to the governing product mention based on word order,
+ * contrastive clause boundaries (e.g. ", while "), and proximity.
+ *
+ * @param {string} sentence
+ * @param {string} targetItemName
+ * @param {string[]} allItemNames
+ * @returns {Array<{ value: number, canonicalUnit: string, component: string|null, startIndex: number, endIndex: number, phrase: string }>}
+ */
+function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
+  const targetLower = targetItemName.toLowerCase()
+  if (!sentence.includes(targetLower)) return []
+
+  // Clean model numbers for all known items so model tokens (e.g. s26) do not interfere
+  let cleaned = sentence
+  for (const item of allItemNames) {
+    cleaned = stripModelNumbers(cleaned, item)
   }
 
-  const tolerance = 0.5
+  const measurements = extractMeasurementsWithContext(cleaned)
+  if (measurements.length === 0) return []
 
-  for (const { value, canonicalUnit: cu } of measurements) {
-    // Strict unit match — skip if units differ
-    if (cu !== evidenceCanonicalUnit) continue
+  const otherItems = allItemNames
+    .map((n) => n.toLowerCase())
+    .filter((n) => n !== targetLower && sentence.includes(n))
 
-    // Same unit: check if the value materially differs from the evidence
-    if (Math.abs(value - evidenceValue) > tolerance) {
-      return { contradicted: true, narrativeValue: value }
+  // If no other products appear in the sentence, all measurements belong to the target
+  if (otherItems.length === 0) {
+    return measurements
+  }
+
+  // Sort items descending by length so longer names take precedence
+  const sortedItems = [...allItemNames]
+    .map((name) => ({
+      name: name.toLowerCase(),
+      isTarget: name.toLowerCase() === targetLower,
+    }))
+    .sort((a, b) => b.name.length - a.name.length)
+
+  const matchedSpans = []
+  const itemMentions = []
+
+  for (const item of sortedItems) {
+    let idx = 0
+    while ((idx = sentence.indexOf(item.name, idx)) !== -1) {
+      const start = idx
+      const end = idx + item.name.length
+      idx = end
+
+      const overlaps = matchedSpans.some(
+        (span) => Math.max(start, span.start) < Math.min(end, span.end)
+      )
+      if (!overlaps) {
+        matchedSpans.push({ start, end })
+        itemMentions.push({
+          name: item.name,
+          isTarget: item.isTarget,
+          start,
+          end,
+        })
+      }
     }
   }
 
-  return { contradicted: false, narrativeValue: null }
+  itemMentions.sort((a, b) => a.start - b.start)
+
+  // Support "respectively" syntactic binding: item A and B offer X and Y respectively
+  if (sentence.includes('respectively') && itemMentions.length === measurements.length) {
+    const targetIdx = itemMentions.findIndex((it) => it.isTarget)
+    if (targetIdx !== -1 && measurements[targetIdx]) {
+      return [measurements[targetIdx]]
+    }
+  }
+
+  return measurements.filter((m) => {
+    let precedingItem = null
+    let followingItem = null
+
+    for (const item of itemMentions) {
+      if (item.end <= m.startIndex) {
+        precedingItem = item
+      } else if (item.start >= m.endIndex && !followingItem) {
+        followingItem = item
+      }
+    }
+
+    // Check preceding item if not separated by a contrastive clause boundary
+    if (precedingItem) {
+      const between = sentence.slice(precedingItem.end, m.startIndex)
+      const hasContrastiveSplit = /[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(between)
+      if (!hasContrastiveSplit) {
+        return precedingItem.isTarget
+      }
+    }
+
+    // Check following item when preceding item was separated by a contrastive boundary
+    if (followingItem) {
+      return followingItem.isTarget
+    }
+
+    // Proximity fallback: nearest item mention
+    let closest = null
+    let minDist = Infinity
+    for (const item of itemMentions) {
+      const dist = Math.min(
+        Math.abs(m.startIndex - item.end),
+        Math.abs(item.start - m.endIndex)
+      )
+      if (dist < minDist) {
+        minDist = dist
+        closest = item
+      }
+    }
+
+    return closest ? closest.isTarget : true
+  })
 }
 
 /**
@@ -241,17 +346,16 @@ function detectNumericContradiction(evidenceValue, evidenceCanonicalUnit, cleane
  * evidence rows.
  *
  * Algorithm:
- *  1. Split the narrative into individual sentences.
- *  2. For each evidence row that has a measurement-unit value:
- *     a. Find sentences that mention both the item name AND a criterion keyword.
- *     b. Strip model-name letter+digit tokens from those sentences (context-aware).
- *     c. Extract measurement numbers+units from the cleaned sentences.
- *     d. Compare only measurements whose unit matches the evidence unit.
- *     e. If the sentence contains a materially different same-unit measurement, flag it.
- *
- * Structured evidence grounding (comparability checks, source verification,
- * evidence_status flags) is handled separately by other services and is
- * NOT repeated here.
+ *  1. Group evidence rows by (item_name, criterion) to gather all applicable
+ *     measurements (handling multi-row and single-string camera components).
+ *  2. Split the narrative into sentence clauses.
+ *  3. For each sentence mentioning an item and criterion:
+ *     a. Attribute measurements within the sentence to the correct product.
+ *     b. Filter measurements strictly matching canonical units.
+ *     c. For multi-component criteria (e.g. camera), match by component descriptor
+ *        (main, ultra_wide, telephoto) so 12MP telephoto is never compared against 48MP main.
+ *     d. Flag only genuine contradictions where narrative values diverge from
+ *        the matching evidence value beyond tolerance (0.5).
  *
  * @param {string} analysisText  Full text of the generated analysis
  * @param {Array}  evidenceRows  Array of evidence row objects, each with:
@@ -267,63 +371,119 @@ export function checkNarrativeConsistency(analysisText, evidenceRows) {
     return { hasConflict: false, conflicts: [] }
   }
 
-  // Split the narrative once, lowercased, for all row checks
+  const allItemNames = [...new Set(evidenceRows.map((r) => r.item_name).filter(Boolean))]
   const sentences = splitIntoSentences(analysisText)
-
   const conflicts = []
+
+  // Group evidence measurements by item_name and criterion
+  const evidenceGroupMap = new Map()
 
   for (const row of evidenceRows) {
     const { item_name, criterion, result } = row
-
-    // Skip rows without the required fields
     if (!item_name || !criterion || !result) continue
 
-    // Only inspect evidence rows that contain a measurement-style number with
-    // an explicit unit.  This prevents product version numbers (e.g. iOS 19,
-    // Galaxy S26) from being treated as measurement values.
-    const measurement = extractMeasurementFromEvidence(String(result))
-    if (!measurement) continue
+    const measurements = extractMeasurementsWithContext(String(result))
+    if (measurements.length === 0) continue
 
-    const evidenceValue = measurement.value
-    const evidenceCU = measurement.canonicalUnit
+    const key = `${item_name.toLowerCase()}:::${criterion.toLowerCase()}`
+    if (!evidenceGroupMap.has(key)) {
+      evidenceGroupMap.set(key, {
+        item_name,
+        criterion,
+        measurements: [],
+      })
+    }
+    const group = evidenceGroupMap.get(key)
+    for (const m of measurements) {
+      if (
+        !group.measurements.some(
+          (existing) =>
+            existing.value === m.value &&
+            existing.canonicalUnit === m.canonicalUnit &&
+            existing.component === m.component
+        )
+      ) {
+        group.measurements.push(m)
+      }
+    }
+  }
+
+  // Inspect each (item, criterion) group against the narrative
+  for (const group of evidenceGroupMap.values()) {
+    const { item_name, criterion, measurements: evMeasurements } = group
     const itemLower = item_name.toLowerCase()
-
-    // Criterion keywords (skip very short/common words)
     const critKeywords = criterion
       .toLowerCase()
       .split(/\s+/)
       .filter((w) => w.length > 2 && !['and', 'the', 'for', 'are'].includes(w))
 
-    // ── For each sentence, check: does it reference BOTH the item AND the criterion?
     for (const sentence of sentences) {
-      // Sentence must contain the item name
       if (!sentence.includes(itemLower)) continue
 
-      // Sentence must contain at least one criterion keyword
       const hasCrit =
         critKeywords.length === 0 || critKeywords.some((kw) => sentence.includes(kw))
       if (!hasCrit) continue
 
-      // Strip model-name letter+digit tokens before extracting measurements.
-      // This removes e.g. "s26" but preserves "26 hours".
-      const cleanedSentence = stripModelNumbers(sentence, item_name)
+      const narrativeMeasurements = getMeasurementsForItem(sentence, item_name, allItemNames)
+      if (narrativeMeasurements.length === 0) continue
 
-      // Check for numeric contradiction — strict unit matching
-      const { contradicted, narrativeValue } = detectNumericContradiction(
-        evidenceValue,
-        evidenceCU,
-        cleanedSentence,
-      )
+      const tolerance = 0.5
 
-      if (contradicted) {
-        conflicts.push({
-          item_name,
-          criterion,
-          evidence_value: evidenceValue,
-          evidence_unit: evidenceCU,
-          narrative_value: narrativeValue,
-        })
-        break  // one conflict per evidence row is sufficient
+      for (const narM of narrativeMeasurements) {
+        const sameUnitEv = evMeasurements.filter((e) => e.canonicalUnit === narM.canonicalUnit)
+        if (sameUnitEv.length === 0) continue
+
+        let isConflict = false
+        let conflictingEvidenceValue = sameUnitEv[0].value
+
+        if (narM.component) {
+          // Narrative specifies a component (e.g. telephoto, ultra_wide, main)
+          const compEv = sameUnitEv.filter((e) => e.component === narM.component)
+          if (compEv.length > 0) {
+            const matchesComp = compEv.some((e) => Math.abs(narM.value - e.value) <= tolerance)
+            if (!matchesComp) {
+              isConflict = true
+              conflictingEvidenceValue = compEv[0].value
+            }
+          } else {
+            // If all evidence measurements have different explicit components,
+            // evidence simply didn't cover this component (not a contradiction)
+            const allHaveOtherComponents = sameUnitEv.every((e) => e.component && e.component !== narM.component)
+            if (!allHaveOtherComponents) {
+              const matchesAny = sameUnitEv.some((e) => Math.abs(narM.value - e.value) <= tolerance)
+              if (!matchesAny) {
+                isConflict = true
+                conflictingEvidenceValue = sameUnitEv[0].value
+              }
+            }
+          }
+        } else {
+          // Narrative does not specify a component (e.g. generic battery hours or generic MP)
+          const matchesAny = sameUnitEv.some((e) => Math.abs(narM.value - e.value) <= tolerance)
+          if (!matchesAny) {
+            isConflict = true
+            conflictingEvidenceValue = sameUnitEv[0].value
+          }
+        }
+
+        if (isConflict) {
+          if (
+            !conflicts.some(
+              (c) =>
+                c.item_name === item_name &&
+                c.criterion === criterion &&
+                c.narrative_value === narM.value
+            )
+          ) {
+            conflicts.push({
+              item_name,
+              criterion,
+              evidence_value: conflictingEvidenceValue,
+              evidence_unit: narM.canonicalUnit,
+              narrative_value: narM.value,
+            })
+          }
+        }
       }
     }
   }

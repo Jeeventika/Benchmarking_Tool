@@ -255,6 +255,136 @@ runCase(
 )
 
 // ============================================================================
+// REGRESSION SUITE: BUG 1 — Same-sentence product attribution
+// Narrative mentions both Galaxy S26 and iPhone 17 in a SINGLE sentence.
+// Values (30h, 27h) must be attributed to their respective products.
+// The checker must not compare 27h against Galaxy S26 or 30h against iPhone 17.
+// ============================================================================
+console.log('\n--- BUG 1: Same-sentence multi-product attribution ---')
+const bug1A = runCase(
+  'BUG 1: Galaxy 30h and iPhone 27h in ONE sentence — no conflict',
+  'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.',
+  [
+    { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+  ],
+  false,
+)
+assertEqual('BUG 1: No conflicts returned for valid single-sentence multi-product claim', 0, bug1A.conflicts.length)
+
+// Assertions failing if either attribution bug returns a conflict or misses a contradiction:
+const bug1B = runCase(
+  'BUG 1: Same-sentence Galaxy contradiction detected (25h vs 30h)',
+  'Galaxy S26 battery life is 25 hours, while iPhone 17 battery life is 27 hours.',
+  [
+    { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+  ],
+  true,
+)
+if (bug1B.conflicts.length > 0) {
+  assertEqual('BUG 1: Galaxy contradiction narrative_value is 25', 25, bug1B.conflicts[0].narrative_value)
+  assertEqual('BUG 1: Galaxy contradiction item_name is Galaxy S26', 'Galaxy S26', bug1B.conflicts[0].item_name)
+} else {
+  console.error('  ASSERT FAIL: BUG 1 — no conflicts array to inspect')
+  failed++
+}
+
+const bug1C = runCase(
+  'BUG 1: Same-sentence iPhone contradiction detected (20h vs 27h)',
+  'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 20 hours.',
+  [
+    { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+  ],
+  true,
+)
+if (bug1C.conflicts.length > 0) {
+  assertEqual('BUG 1: iPhone contradiction narrative_value is 20', 20, bug1C.conflicts[0].narrative_value)
+  assertEqual('BUG 1: iPhone contradiction item_name is iPhone 17', 'iPhone 17', bug1C.conflicts[0].item_name)
+} else {
+  console.error('  ASSERT FAIL: BUG 1 — no conflicts array to inspect')
+  failed++
+}
+
+// ============================================================================
+// REGRESSION SUITE: BUG 2 — Camera multi-value attribution
+// Narrative: "iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 12MP telephoto."
+// Evidence tested in BOTH formats:
+//   Format 1: Separate rows (48MP main camera, 48MP Ultra Wide, 12MP telephoto)
+//   Format 2: Single combined string
+// Values must be matched by camera component/descriptor so 12MP is not compared
+// against 48MP.
+// ============================================================================
+console.log('\n--- BUG 2: Camera multi-value attribution ---')
+
+// Format 1: Separate rows
+const bug2Separate = runCase(
+  'BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict',
+  'iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 12MP telephoto.',
+  [
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP main camera' },
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Ultra Wide'  },
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '12MP telephoto'   },
+  ],
+  false,
+)
+assertEqual('BUG 2 (separate rows): No conflicts returned for valid multi-value camera claim', 0, bug2Separate.conflicts.length)
+
+// Format 2: Single combined string
+const bug2Combined = runCase(
+  'BUG 2: Camera multi-value single combined string — no conflict',
+  'iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 12MP telephoto.',
+  [
+    {
+      item_name: 'iPhone 17',
+      criterion: 'Camera',
+      result: '48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto (120mm equivalent)',
+    },
+  ],
+  false,
+)
+assertEqual('BUG 2 (combined string): No conflicts returned for valid multi-value camera claim', 0, bug2Combined.conflicts.length)
+
+// Bug 2 Contradiction on main camera (64MP vs 48MP)
+const bug2MainContradiction = runCase(
+  'BUG 2: Camera main component contradiction detected (64MP vs 48MP)',
+  'iPhone 17 has a 64MP main camera, 48MP Ultra Wide, and 12MP telephoto.',
+  [
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP main camera' },
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Ultra Wide'  },
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '12MP telephoto'   },
+  ],
+  true,
+)
+if (bug2MainContradiction.conflicts.length > 0) {
+  assertEqual('BUG 2: Main camera contradiction narrative_value is 64', 64, bug2MainContradiction.conflicts[0].narrative_value)
+  assertEqual('BUG 2: Main camera contradiction evidence_value is 48', 48, bug2MainContradiction.conflicts[0].evidence_value)
+} else {
+  console.error('  ASSERT FAIL: BUG 2 — no conflicts array to inspect')
+  failed++
+}
+
+// Bug 2 Contradiction on telephoto (10MP vs 12MP)
+const bug2TeleContradiction = runCase(
+  'BUG 2: Camera telephoto component contradiction detected (10MP vs 12MP)',
+  'iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 10MP telephoto.',
+  [
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP main camera' },
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Ultra Wide'  },
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '12MP telephoto'   },
+  ],
+  true,
+)
+if (bug2TeleContradiction.conflicts.length > 0) {
+  assertEqual('BUG 2: Telephoto contradiction narrative_value is 10', 10, bug2TeleContradiction.conflicts[0].narrative_value)
+  assertEqual('BUG 2: Telephoto contradiction evidence_value is 12', 12, bug2TeleContradiction.conflicts[0].evidence_value)
+} else {
+  console.error('  ASSERT FAIL: BUG 2 — no conflicts array to inspect')
+  failed++
+}
+
+// ============================================================================
 // Summary
 // ============================================================================
 console.log('\n================================================================')

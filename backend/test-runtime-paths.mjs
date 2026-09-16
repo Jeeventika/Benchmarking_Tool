@@ -136,6 +136,72 @@ const CASES = [
     expectConflict: false,
     expectNarrativeValue: null,
   },
+  {
+    name: 'BUG 1: Galaxy 30h / iPhone 27h in single sentence — no conflict',
+    analysis: 'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.',
+    evidence: [
+      { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+      { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+    ],
+    expectConflict: false,
+    expectNarrativeValue: null,
+  },
+  {
+    name: 'BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict',
+    analysis: 'Galaxy S26 battery life is 25 hours, while iPhone 17 battery life is 27 hours.',
+    evidence: [
+      { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+      { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+    ],
+    expectConflict: true,
+    expectNarrativeValue: 25,
+  },
+  {
+    name: 'BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict',
+    analysis: 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 12MP telephoto.',
+    evidence: [
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP main camera' },
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Ultra Wide'  },
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '12MP telephoto'   },
+    ],
+    expectConflict: false,
+    expectNarrativeValue: null,
+  },
+  {
+    name: 'BUG 2: Camera multi-value single combined string — no conflict',
+    analysis: 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 12MP telephoto.',
+    evidence: [
+      {
+        item_name: 'iPhone 17',
+        criterion: 'Camera',
+        result: '48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto (120mm equivalent)',
+      },
+    ],
+    expectConflict: false,
+    expectNarrativeValue: null,
+  },
+  {
+    name: 'BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict',
+    analysis: 'iPhone 17 has a 64MP main camera, 48MP Ultra Wide, and 12MP telephoto.',
+    evidence: [
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP main camera' },
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Ultra Wide'  },
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '12MP telephoto'   },
+    ],
+    expectConflict: true,
+    expectNarrativeValue: 64,
+  },
+  {
+    name: 'BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict',
+    analysis: 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide, and 10MP telephoto.',
+    evidence: [
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP main camera' },
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Ultra Wide'  },
+      { item_name: 'iPhone 17', criterion: 'Camera', result: '12MP telephoto'   },
+    ],
+    expectConflict: true,
+    expectNarrativeValue: 10,
+  },
 ]
 
 const SOURCE_TO_SOURCE_CASES = [
