@@ -31,6 +31,47 @@ function extractPrice(str) {
   return m ? parseFloat(m[1].replace(/,/g, '')) : null
 }
 
+export function isEvidenceVerified(e) {
+  if (!e || !e.result) return false
+  const res = String(e.result).toLowerCase()
+  if (
+    res.includes('reliable source not found') ||
+    res.startsWith('extraction failed') ||
+    res.includes('no authoritative source')
+  ) {
+    return false
+  }
+  const status = String(e.evidence_status || e.status || '').toLowerCase()
+  if (status === 'unverified' || status === 'needs_review' || status === 'pending') {
+    return false
+  }
+  const source = String(e.source_name || e.source || '').toLowerCase()
+  if (source.includes('unverified') || source.includes('no authoritative source')) {
+    return false
+  }
+  return true
+}
+
+export function getVerifiedBatteryHours(item, evidenceRows) {
+  if (!item || !Array.isArray(evidenceRows)) return null
+  const itemName = (item.name || '').toLowerCase()
+  const itemEv = evidenceRows.filter(
+    (e) =>
+      (e.comparison_item_id === item.id ||
+        (e.item_name && itemName && e.item_name.toLowerCase().includes(itemName)) ||
+        (itemName && e.item_name && itemName.includes(e.item_name.toLowerCase()))) &&
+      /battery/i.test(e.criterion) &&
+      isEvidenceVerified(e)
+  )
+  for (const ev of itemEv) {
+    const h = extractHours(ev.result)
+    if (h !== null && !isNaN(h)) {
+      return h
+    }
+  }
+  return null
+}
+
 export const isIPhoneAndGalaxy = (items) =>
   items &&
   items.some((i) => /iphone/i.test(i.name)) &&
@@ -71,9 +112,27 @@ export function buildAnalysisPrompt(comparison, items, evidenceRows) {
 
   let extraNeutralityRules = ''
   if (iPhoneGalaxy) {
+    const iphoneItem = items.find((i) => /iphone/i.test(i.name))
+    const galaxyItem = items.find((i) => /galaxy/i.test(i.name))
+    const iphoneH = getVerifiedBatteryHours(iphoneItem, evidenceRows)
+    const galaxyH = getVerifiedBatteryHours(galaxyItem, evidenceRows)
+
+    let batteryRule = ''
+    if (galaxyH !== null && iphoneH !== null) {
+      const higherItem = galaxyH >= iphoneH ? 'Galaxy S26' : 'iPhone 17'
+      const lowerItem = galaxyH >= iphoneH ? 'iPhone 17' : 'Galaxy S26'
+      batteryRule = `6. Do NOT state or suggest that the ${lowerItem} has longer battery life. The ${higherItem} is listed at up to ${Math.max(galaxyH, iphoneH)} hours, while the ${lowerItem} is listed at up to ${Math.min(galaxyH, iphoneH)} hours.`
+    } else if (galaxyH !== null) {
+      batteryRule = `6. Galaxy S26 battery life is listed at up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified. Do NOT invent an iPhone battery figure.`
+    } else if (iphoneH !== null) {
+      batteryRule = `6. iPhone 17 battery life is listed at up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified. Do NOT invent a Galaxy battery figure.`
+    } else {
+      batteryRule = '6. Battery-hour comparison cannot be established from the available verified evidence. Do NOT invent any battery-hour numbers.'
+    }
+
     extraNeutralityRules = `\n5. Do NOT state or suggest that the iPhone 17 has a higher megapixel count. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP main camera.
-6. Do NOT state or suggest that the iPhone 17 has longer battery life. The Galaxy S26 is listed at up to 30 hours, while the iPhone 17 is listed at up to 27 hours.
-7. Do NOT compare megapixels as proof of camera quality.
+${batteryRule}
+7. Do NOT compare megapixels as proof of camera quality. Explicitly state that camera quality cannot be determined from megapixel counts and specifications alone.
 8. Note that iPhone 17 starts at $999 for 128GB baseline storage while Galaxy S26 starts at $1,299.99 for 256GB baseline storage.`
   } else if (macBookDell) {
     extraNeutralityRules = `\n5. For BATTERY: Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life. Do NOT claim one lasts longer or has better battery life. State that both are listed at up to 18 hours, although testing conditions may differ.
@@ -85,7 +144,24 @@ export function buildAnalysisPrompt(comparison, items, evidenceRows) {
 
   let limitationPromptInstruction = 'Conclude strictly with:\nLIMITATION: [State 1-2 practical limitations or caveats about the data].'
   if (iPhoneGalaxy) {
-    limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
+    const iphoneItem = items.find((i) => /iphone/i.test(i.name))
+    const galaxyItem = items.find((i) => /galaxy/i.test(i.name))
+    const iphoneH = getVerifiedBatteryHours(iphoneItem, evidenceRows)
+    const galaxyH = getVerifiedBatteryHours(galaxyItem, evidenceRows)
+
+    if (galaxyH !== null && iphoneH !== null) {
+      if (galaxyH === 30 && iphoneH === 27) {
+        limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
+      } else {
+        limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to ${galaxyH} hours of continuous video playback, compared with up to ${iphoneH} hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+      }
+    } else if (galaxyH !== null) {
+      limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    } else if (iphoneH !== null) {
+      limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. iPhone 17 battery life is listed as up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    } else {
+      limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Battery-hour comparison cannot be established from the available verified evidence. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    }
   } else if (macBookDell) {
     limitationPromptInstruction = `Conclude strictly with:\nLIMITATION: ${MACBOOK_DELL_THINGS_TO_CONSIDER}`
   }
@@ -199,40 +275,24 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
           const iphoneItem = items.find((i) => /iphone/i.test(i.name))
           const galaxyItem = items.find((i) => /galaxy/i.test(i.name))
 
-          const isEvVerified = (e) =>
-            e &&
-            e.result &&
-            !e.result.includes('Reliable source not found') &&
-            !e.result.startsWith('Extraction failed') &&
-            e.evidence_status !== 'unverified' &&
-            e.evidence_status !== 'needs_review'
+          const iphoneH = getVerifiedBatteryHours(iphoneItem, evForCrit)
+          const galaxyH = getVerifiedBatteryHours(galaxyItem, evForCrit)
 
-          const iphoneEv = iphoneItem
-            ? evForCrit.find((e) => (e.comparison_item_id === iphoneItem.id || /iphone/i.test(e.item_name)) && isEvVerified(e))
-            : null
-          const galaxyEv = galaxyItem
-            ? evForCrit.find((e) => (e.comparison_item_id === galaxyItem.id || /galaxy/i.test(e.item_name)) && isEvVerified(e))
-            : null
-
-          if (galaxyEv && !iphoneEv) {
-            const galaxyH = extractHours(galaxyEv.result) || 30
+          if (galaxyH !== null && iphoneH === null) {
             sections.push(
               `Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Battery-life figures may not be directly comparable because testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
             )
             continue
           }
 
-          if (iphoneEv && !galaxyEv) {
-            const iphoneH = extractHours(iphoneEv.result) || 27
+          if (iphoneH !== null && galaxyH === null) {
             sections.push(
               `iPhone 17 battery life is listed as up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided. Battery-life figures may not be directly comparable because testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
             )
             continue
           }
 
-          if (iphoneEv && galaxyEv) {
-            const iphoneH = extractHours(iphoneEv.result) ?? 27
-            const galaxyH = extractHours(galaxyEv.result) ?? 30
+          if (iphoneH !== null && galaxyH !== null) {
             if (galaxyH === iphoneH) {
               sections.push(
                 `Both Galaxy S26 and iPhone 17 are listed at up to ${galaxyH} hours of continuous video playback, although testing conditions may differ.`
@@ -249,30 +309,31 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
             continue
           }
 
-          sections.push(
-            'Battery-life figures cannot be verified because matching verified evidence was not provided.'
-          )
+          const verifiedDesc = items
+            .map((it) => {
+              const ev = evForCrit.find(
+                (e) => (e.item_name === it.name || e.comparison_item_id === it.id) && isEvidenceVerified(e)
+              )
+              return ev ? `${it.name} reports ${ev.result}` : null
+            })
+            .filter(Boolean)
+            .join('; ')
+
+          if (verifiedDesc) {
+            sections.push(
+              `For battery life: ${verifiedDesc}. Battery-hour comparison cannot be established from the available verified evidence.`
+            )
+          } else {
+            sections.push(
+              'Battery-hour comparison cannot be established from the available verified evidence.'
+            )
+          }
           continue
         }
 
         if (items.length === 2) {
-          const isEvVerified = (e) =>
-            e &&
-            e.result &&
-            !e.result.includes('Reliable source not found') &&
-            !e.result.startsWith('Extraction failed') &&
-            e.evidence_status !== 'unverified' &&
-            e.evidence_status !== 'needs_review'
-
-          const ev1 = evForCrit.find(
-            (e) => (e.item_name === items[0].name || e.comparison_item_id === items[0].id) && isEvVerified(e)
-          )
-          const ev2 = evForCrit.find(
-            (e) => (e.item_name === items[1].name || e.comparison_item_id === items[1].id) && isEvVerified(e)
-          )
-
-          const h1 = ev1 ? extractHours(ev1.result) : null
-          const h2 = ev2 ? extractHours(ev2.result) : null
+          const h1 = getVerifiedBatteryHours(items[0], evForCrit)
+          const h2 = getVerifiedBatteryHours(items[1], evForCrit)
 
           if (h1 !== null && h2 !== null) {
             const higherItem = h1 >= h2 ? items[0] : items[1]
@@ -303,18 +364,24 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
           }
         }
 
-        const desc = items
+        const verifiedDesc = items
           .map((it) => {
             const ev = evForCrit.find(
-              (e) => e.item_name === it.name || e.comparison_item_id === it.id
+              (e) => (e.item_name === it.name || e.comparison_item_id === it.id) && isEvidenceVerified(e)
             )
             return ev ? `${it.name} reports ${ev.result}` : null
           })
           .filter(Boolean)
           .join('; ')
-        sections.push(
-          `For battery life: ${desc}. These figures may not be directly comparable if the testing conditions differ.`
-        )
+        if (verifiedDesc) {
+          sections.push(
+            `For battery life: ${verifiedDesc}. Battery-hour comparison cannot be established from the available verified evidence.`
+          )
+        } else {
+          sections.push(
+            'Battery-hour comparison cannot be established from the available verified evidence.'
+          )
+        }
         continue
       }
 
@@ -462,30 +529,18 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
     limitationStatement =
       'LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.'
   } else if (iPhoneGalaxy) {
-    const isEvVerified = (e) =>
-      e &&
-      e.result &&
-      !e.result.includes('Reliable source not found') &&
-      !e.result.startsWith('Extraction failed') &&
-      e.evidence_status !== 'unverified' &&
-      e.evidence_status !== 'needs_review'
-
     const iphoneItem = items.find((i) => /iphone/i.test(i.name))
     const galaxyItem = items.find((i) => /galaxy/i.test(i.name))
-    const iphoneBatteryEv = iphoneItem
-      ? evidenceRows.find((e) => (e.comparison_item_id === iphoneItem.id || /iphone/i.test(e.item_name)) && /battery/i.test(e.criterion) && isEvVerified(e))
-      : null
-    const galaxyBatteryEv = galaxyItem
-      ? evidenceRows.find((e) => (e.comparison_item_id === galaxyItem.id || /galaxy/i.test(e.item_name)) && /battery/i.test(e.criterion) && isEvVerified(e))
-      : null
+    const iphoneH = getVerifiedBatteryHours(iphoneItem, evidenceRows)
+    const galaxyH = getVerifiedBatteryHours(galaxyItem, evidenceRows)
 
-    if (galaxyBatteryEv && !iphoneBatteryEv) {
-      const galaxyH = extractHours(galaxyBatteryEv.result) || 30
+    if (galaxyH !== null && iphoneH === null) {
       limitationStatement =
         `LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
-    } else if (galaxyBatteryEv && iphoneBatteryEv) {
-      const galaxyH = extractHours(galaxyBatteryEv.result) ?? 30
-      const iphoneH = extractHours(iphoneBatteryEv.result) ?? 27
+    } else if (iphoneH !== null && galaxyH === null) {
+      limitationStatement =
+        `LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. iPhone 17 battery life is listed as up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    } else if (galaxyH !== null && iphoneH !== null) {
       if (galaxyH === 30 && iphoneH === 27) {
         limitationStatement = `LIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
       } else {
@@ -493,7 +548,8 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
           `LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to ${galaxyH} hours of continuous video playback, compared with up to ${iphoneH} hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
       }
     } else {
-      limitationStatement = `LIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
+      limitationStatement =
+        'LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Battery-hour comparison cannot be established from the available verified evidence. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
     }
   } else if (macBookDell) {
     limitationStatement = `LIMITATION: ${MACBOOK_DELL_THINGS_TO_CONSIDER}`
@@ -557,72 +613,91 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
   }
 
   // 3. Check for incorrect iPhone/Galaxy battery claim (iPhone longer / better battery or missing evidence attribution)
-  const isEvVerified = (e) =>
-    e &&
-    e.result &&
-    !e.result.includes('Reliable source not found') &&
-    !e.result.startsWith('Extraction failed') &&
-    e.evidence_status !== 'unverified' &&
-    e.evidence_status !== 'needs_review'
-
   const iphoneItem = items.find((i) => /iphone/i.test(i.name))
   const galaxyItem = items.find((i) => /galaxy/i.test(i.name))
-  const iphoneBatteryEv = iphoneItem
-    ? evidenceRows.find((e) => (e.comparison_item_id === iphoneItem.id || /iphone/i.test(e.item_name)) && /battery/i.test(e.criterion) && isEvVerified(e))
-    : null
-  const galaxyBatteryEv = galaxyItem
-    ? evidenceRows.find((e) => (e.comparison_item_id === galaxyItem.id || /galaxy/i.test(e.item_name)) && /battery/i.test(e.criterion) && isEvVerified(e))
-    : null
+  const galaxyH = getVerifiedBatteryHours(galaxyItem, evidenceRows)
+  const iphoneH = getVerifiedBatteryHours(iphoneItem, evidenceRows)
 
-  if (iPhoneGalaxy && galaxyBatteryEv && !iphoneBatteryEv) {
-    const unverifiedComparison =
-      /Galaxy\s+S26\s+battery\s+life\s+is\s+\d+\s+hours,\s+while\s+iPhone\s+17\s+battery\s+life\s+is\s+\d+\s+hours/i.test(mainText) ||
-      /(?:iphone|apple).*(?:\d+\s*hours?|battery|runtime)/i.test(mainText)
+  if (iPhoneGalaxy) {
+    if (galaxyH !== null && iphoneH === null) {
+      const unverifiedComparison =
+        /Galaxy\s+S26\s+battery\s+life\s+is\s+\d+\s+hours,\s+while\s+iPhone\s+17\s+battery\s+life\s+is\s+\d+\s+hours/i.test(mainText) ||
+        /(?:iphone|apple).*(?:\d+\s*hours?|battery|runtime)/i.test(mainText)
 
-    if (unverifiedComparison) {
-      const galaxyH = extractHours(galaxyBatteryEv.result) || 30
-      const safeText =
-        `Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.`
+      if (unverifiedComparison) {
+        const safeText =
+          `Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.`
 
-      mainText = mainText.replace(
-        /[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
-        safeText
-      )
-      mainText = mainText.replace(
-        /[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
-        safeText
-      )
-      mainText = mainText.replace(
-        /[^.?!]*(?:iphone|apple)[^.?!]*\d+\s*hours?[^.?!]*[.?!]?/gi,
-        'The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.'
-      )
-    }
-  } else {
-    const iphoneLongerBattery =
-      /(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime|hours)/i.test(mainText) ||
-      /(?:battery|runtime).*(?:iphone|apple).*(?:longer|more|better|greater)/i.test(mainText) ||
-      /(?:galaxy|samsung).*(?:shorter|less|worse).*(?:battery|runtime)/i.test(mainText)
+        mainText = mainText.replace(
+          /[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
+          safeText
+        )
+        mainText = mainText.replace(
+          /[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
+          safeText
+        )
+        mainText = mainText.replace(
+          /[^.?!]*(?:iphone|apple)[^.?!]*\d+\s*hours?[^.?!]*[.?!]?/gi,
+          'The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.'
+        )
+      }
+    } else if (galaxyH === null && iphoneH !== null) {
+      const unverifiedComparison =
+        /(?:galaxy|samsung).*(?:\d+\s*hours?|battery|runtime)/i.test(mainText)
 
-    if (iPhoneGalaxy && iphoneLongerBattery) {
-      const galaxyH = galaxyBatteryEv ? extractHours(galaxyBatteryEv.result) ?? 30 : 30
-      const iphoneH = iphoneBatteryEv ? extractHours(iphoneBatteryEv.result) ?? 27 : 27
-      const higherH = Math.max(galaxyH, iphoneH)
-      const lowerH = Math.min(galaxyH, iphoneH)
-      const higherItem = galaxyH >= iphoneH ? 'Galaxy S26' : 'iPhone 17'
-      const lowerItem = galaxyH >= iphoneH ? 'iPhone 17' : 'Galaxy S26'
-      const batteryCorrect =
-        `The ${lowerItem} is listed at up to ${lowerH} hours of continuous video playback, while the ${higherItem} is listed at up to ${higherH} hours. Based on the retrieved video-playback figures, the ${higherItem} is listed at up to ${higherH} hours, compared with up to ${lowerH} hours for the ${lowerItem}. Testing conditions and manufacturer methodologies may differ, so these figures may not be directly comparable if the testing conditions differ.`
+      if (unverifiedComparison) {
+        const safeText =
+          `iPhone 17 battery life is listed as up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided.`
 
-      mainText = mainText.replace(
-        /[^.?!]*(?:longer|more|better|greater)[^.?!]*battery[^.?!]*[.?!]?/i,
-        batteryCorrect
-      )
+        mainText = mainText.replace(
+          /[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
+          safeText
+        )
+        mainText = mainText.replace(
+          /[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
+          safeText
+        )
+        mainText = mainText.replace(
+          /[^.?!]*(?:galaxy|samsung)[^.?!]*\d+\s*hours?[^.?!]*[.?!]?/gi,
+          'The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided.'
+        )
+      }
+    } else if (galaxyH === null && iphoneH === null) {
+      // Neither device has verified battery hours (e.g. 5000 mAh only or needs_review)
+      if (/\b\d+\s*(?:hours?|hrs?)\b/i.test(mainText)) {
+        mainText = mainText.replace(
+          /[^.?!]*\b\d+\s*(?:hours?|hrs?)[^.?!]*[.?!]?/gi,
+          'Battery-hour comparison cannot be established from the available verified evidence.'
+        )
+      }
+      if (!mainText.includes('Battery-hour comparison cannot be established from the available verified evidence.')) {
+        mainText = `${mainText.trim()} Battery-hour comparison cannot be established from the available verified evidence.`
+      }
+    } else {
+      const iphoneLongerBattery =
+        /(?:iphone|apple).*(?:longer|more|better|greater).*(?:battery|runtime|hours)/i.test(mainText) ||
+        /(?:battery|runtime).*(?:iphone|apple).*(?:longer|more|better|greater)/i.test(mainText) ||
+        /(?:galaxy|samsung).*(?:shorter|less|worse).*(?:battery|runtime)/i.test(mainText)
+
+      if (iphoneLongerBattery) {
+        const higherH = Math.max(galaxyH, iphoneH)
+        const lowerH = Math.min(galaxyH, iphoneH)
+        const higherItem = galaxyH >= iphoneH ? 'Galaxy S26' : 'iPhone 17'
+        const lowerItem = galaxyH >= iphoneH ? 'iPhone 17' : 'Galaxy S26'
+        const batteryCorrect =
+          `The ${lowerItem} is listed at up to ${lowerH} hours of continuous video playback, while the ${higherItem} is listed at up to ${higherH} hours. Based on the retrieved video-playback figures, the ${higherItem} is listed at up to ${higherH} hours, compared with up to ${lowerH} hours for the ${lowerItem}. Testing conditions and manufacturer methodologies may differ, so these figures may not be directly comparable if the testing conditions differ.`
+
+        mainText = mainText.replace(
+          /[^.?!]*(?:longer|more|better|greater)[^.?!]*battery[^.?!]*[.?!]?/i,
+          batteryCorrect
+        )
+      }
     }
   }
 
   // 4. Check for MacBook Air / Dell XPS battery claims (both are 18h)
   if (macBookDell) {
-    if (!mainText.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life')) {
+    if (!mainText.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life') && !mainText.includes('Both devices are listed at up to 18 hours of battery life')) {
       const macOrDellUnequalBattery =
         /(?:macbook|dell|xps).*(?:longer|more|better|greater|superior).*(?:battery|runtime)/i.test(mainText) ||
         /(?:battery|runtime).*(?:macbook|dell|xps).*(?:longer|more|better|greater|superior)/i.test(mainText)
@@ -689,13 +764,13 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
 
   // 8. Sanitize and enforce limitation / "Things to consider" section
   if (iPhoneGalaxy) {
-    if (galaxyBatteryEv && !iphoneBatteryEv) {
-      const galaxyH = extractHours(galaxyBatteryEv.result) || 30
+    if (galaxyH !== null && iphoneH === null) {
       limitationText =
         `Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
-    } else if (galaxyBatteryEv && iphoneBatteryEv) {
-      const galaxyH = extractHours(galaxyBatteryEv.result) ?? 30
-      const iphoneH = extractHours(iphoneBatteryEv.result) ?? 27
+    } else if (galaxyH === null && iphoneH !== null) {
+      limitationText =
+        `Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. iPhone 17 battery life is listed as up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    } else if (galaxyH !== null && iphoneH !== null) {
       if (galaxyH === 30 && iphoneH === 27) {
         limitationText = IPHONE_GALAXY_THINGS_TO_CONSIDER
       } else {
@@ -703,7 +778,8 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
           `Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to ${galaxyH} hours of continuous video playback, compared with up to ${iphoneH} hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
       }
     } else {
-      limitationText = IPHONE_GALAXY_THINGS_TO_CONSIDER
+      limitationText =
+        'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Battery-hour comparison cannot be established from the available verified evidence. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
     }
   } else if (macBookDell) {
     limitationText = MACBOOK_DELL_THINGS_TO_CONSIDER
@@ -780,7 +856,8 @@ export function generateExportReport(comparison, items, evidence = [], analysis 
       claimsAudit = claims
         .map((c) => {
           const label = c.status === 'grounded' ? 'GROUNDED' : 'POTENTIALLY_UNVERIFIED'
-          return `- [${c.item_name || 'Item'}] ${c.criterion || 'Spec'}: "${c.claim_text || c.result || ''}" [Label: ${label}]`
+          const claimText = (c.claim || c.claim_text || c.result || '').trim()
+          return `- [${c.item_name || 'Item'}] ${c.criterion || 'Spec'}: "${claimText}" [Label: ${label}]`
         })
         .join('\n')
     }

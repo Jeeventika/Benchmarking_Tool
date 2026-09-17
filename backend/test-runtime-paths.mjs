@@ -1204,6 +1204,153 @@ console.log('══════════════════════�
   passed++
 }
 
+// ══════════════════════════════════════════════════════════════════
+// SECTION 8: REVIEWER CASES 1 THROUGH 6
+// ══════════════════════════════════════════════════════════════════
+console.log('\n══════════════════════════════════════════════════════════════════')
+console.log('SECTION 8: REVIEWER CASES 1 THROUGH 6')
+console.log('══════════════════════════════════════════════════════════════════\n')
+
+// Case 1: 40h/35h dynamic values and limitation
+{
+  const compC1 = { criteria: ['Battery Life', 'Camera'] }
+  const itemsC1 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const evC1 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '40 hours', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Battery Life', result: '35 hours', evidence_status: 'verified', source_name: 'Apple Specs' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion', evidence_status: 'verified', source_name: 'Apple Specs' },
+  ]
+  const synthC1 = generateGroundedAnalysisSynthesis(compC1, itemsC1, evC1, [])
+  assert('Case 1: Synthesis includes 40 hours', true, synthC1.includes('40 hours'))
+  passed++
+  assert('Case 1: Synthesis includes 35 hours', true, synthC1.includes('35 hours'))
+  passed++
+  assert('Case 1: Synthesis does not fallback to 30 hours', false, synthC1.includes('30 hours'))
+  passed++
+  assert('Case 1: Synthesis does not fallback to 27 hours', false, synthC1.includes('27 hours'))
+  passed++
+  assert('Case 1: Limitation reflects 40 hours and 35 hours', true, synthC1.includes('40 hours') && synthC1.includes('35 hours'))
+  passed++
+  assert('Case 1: Synthesis has no narrative conflict', false, checkNarrativeConsistency(synthC1, evC1, itemsC1).hasConflict)
+  passed++
+}
+
+// Case 2: Galaxy 5000 mAh alone (no iPhone battery row)
+{
+  const compC2 = { criteria: ['Battery Life', 'Camera'] }
+  const itemsC2 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const evC2 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '5000 mAh', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion', evidence_status: 'verified', source_name: 'Apple Specs' },
+  ]
+  const synthC2 = generateGroundedAnalysisSynthesis(compC2, itemsC2, evC2, [])
+  assert('Case 2: Synthesis does NOT convert 5000 mAh to 30 hours', false, synthC2.includes('30 hours'))
+  passed++
+  assert('Case 2: Synthesis does NOT invent 27 hours for iPhone', false, synthC2.includes('27 hours'))
+  passed++
+  assert('Case 2: Synthesis mentions 5000 mAh', true, synthC2.includes('5000 mAh'))
+  passed++
+  assert('Case 2: Synthesis states battery-hour comparison cannot be established', true, synthC2.includes('Battery-hour comparison cannot be established from the available verified evidence.'))
+  passed++
+  assert('Case 2: Limitation statement withholds battery hours and states comparison cannot be established', true, synthC2.includes('Battery-hour comparison cannot be established from the available verified evidence.'))
+  passed++
+  assert('Case 2: Synthesis has no narrative conflict', false, checkNarrativeConsistency(synthC2, evC2, itemsC2).hasConflict)
+  passed++
+
+  // Also test sanitizer when Ollama outputs 30h / 27h
+  const ollamaHallucination = 'The Galaxy S26 battery life is 30 hours, while the iPhone 17 battery life is 27 hours.\n\nLIMITATION: ' + IPHONE_GALAXY_THINGS_TO_CONSIDER
+  const sanitizedC2 = validateAndSanitizeAnalysis(ollamaHallucination, compC2, itemsC2, evC2, [])
+  assert('Case 2: Sanitizer strips 30 hours when only 5000 mAh is in evidence', false, sanitizedC2.includes('30 hours'))
+  passed++
+  assert('Case 2: Sanitizer strips 27 hours when no iPhone battery is in evidence', false, sanitizedC2.includes('27 hours'))
+  passed++
+  assert('Case 2: Sanitizer includes battery-hour comparison cannot be established', true, sanitizedC2.includes('Battery-hour comparison cannot be established from the available verified evidence.'))
+  passed++
+}
+
+// Case 3: Galaxy needs_review battery row
+{
+  const compC3 = { criteria: ['Battery Life', 'Camera'] }
+  const itemsC3 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const evC3 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours', evidence_status: 'needs_review', source_name: 'Unverified Blog' },
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion', evidence_status: 'verified', source_name: 'Apple Specs' },
+  ]
+  const synthC3 = generateGroundedAnalysisSynthesis(compC3, itemsC3, evC3, [])
+  assert('Case 3: needs_review battery is NOT treated as verified evidence (no 30 hours in synthesis)', false, synthC3.includes('30 hours'))
+  passed++
+  assert('Case 3: Synthesis does not mention 27 hours', false, synthC3.includes('27 hours'))
+  passed++
+  assert('Case 3: Synthesis withholds battery numbers and states cannot be established', true, synthC3.includes('Battery-hour comparison cannot be established from the available verified evidence.'))
+  passed++
+
+  const sanitizedC3 = validateAndSanitizeAnalysis('Galaxy S26 lasts 30 hours and iPhone 17 lasts 27 hours.\n\nLIMITATION: Galaxy 30 hours, iPhone 27 hours', compC3, itemsC3, evC3, [])
+  assert('Case 3: Sanitizer withholds 30 hours for needs_review battery', false, sanitizedC3.includes('30 hours'))
+  passed++
+  assert('Case 3: Sanitizer withholds 27 hours for unverified iPhone battery', false, sanitizedC3.includes('27 hours'))
+  passed++
+  assert('Case 3: Sanitizer states battery-hour comparison cannot be established', true, sanitizedC3.includes('Battery-hour comparison cannot be established from the available verified evidence.'))
+  passed++
+}
+
+// Case 4: Missing-item attribution (one sentence, Galaxy 30h, iPhone 27h)
+{
+  const sentenceC4 = 'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.'
+  const itemsC4 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const evC4OnlyGalaxy = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours', evidence_status: 'verified', source_name: 'Samsung Specs' },
+  ]
+  const classifiedC4 = classifyClaims(sentenceC4, itemsC4, evC4OnlyGalaxy)
+  const iphoneClaim = classifiedC4.find(c => /iphone/i.test(c.item_name) && /battery/i.test(c.criterion || c.claim))
+  assert('Case 4: Missing iPhone battery is flagged as potentially unverified', 'potentially_unverified', iphoneClaim?.status)
+  passed++
+  const galaxyClaim = classifiedC4.find(c => /galaxy/i.test(c.item_name) && /battery/i.test(c.criterion || c.claim))
+  assert('Case 4: Galaxy battery with verified evidence is grounded', 'grounded', galaxyClaim?.status)
+  passed++
+}
+
+// Case 5: Export with grounded claim (claim text appears beside Grounded)
+{
+  const compC5 = { goal: 'Test export grounded claim text' }
+  const itemsC5 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const evC5 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours', evidence_status: 'verified', source_name: 'Apple Specs' },
+  ]
+  const claimsC5 = classifyClaims('Galaxy S26 offers 30 hours and iPhone 17 offers 27 hours.', itemsC5, evC5)
+  const analysisC5 = {
+    content: 'Comparison analysis.\n\nLIMITATION: Testing conditions differ.',
+    claims: claimsC5
+  }
+  const exportC5 = generateExportReport(compC5, itemsC5, evC5, analysisC5, null, null)
+  assert('Case 5: Export report does NOT contain empty quotes for grounded claim', false, exportC5.includes('"": [Label: GROUNDED]') || exportC5.includes('": "" [Label: GROUNDED]'))
+  passed++
+  assert('Case 5: Export report includes claim text beside GROUNDED label', true, exportC5.includes('reports Battery Life of 30 hours') && exportC5.includes('[Label: GROUNDED]'))
+  passed++
+}
+
+// Case 6: Export with unverified claim (claim text appears beside Potentially Unverified)
+{
+  const compC6 = { goal: 'Test export unverified claim text' }
+  const itemsC6 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const evC6 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours', evidence_status: 'verified', source_name: 'Samsung Specs' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours', evidence_status: 'needs_review', source_name: 'Unverified' },
+  ]
+  const claimsC6 = classifyClaims('Galaxy S26 offers 30 hours and iPhone 17 offers 27 hours.', itemsC6, evC6)
+  const analysisC6 = {
+    content: 'Comparison analysis.\n\nLIMITATION: Testing conditions differ.',
+    claims: claimsC6
+  }
+  const exportC6 = generateExportReport(compC6, itemsC6, evC6, analysisC6, null, null)
+  assert('Case 6: Export report does NOT contain empty quotes for unverified claim', false, exportC6.includes('"": [Label: POTENTIALLY_UNVERIFIED]') || exportC6.includes('": "" [Label: POTENTIALLY_UNVERIFIED]'))
+  passed++
+  assert('Case 6: Export report includes unverified claim text beside POTENTIALLY_UNVERIFIED label', true, exportC6.includes('reports Battery Life of 27 hours') && exportC6.includes('[Label: POTENTIALLY_UNVERIFIED]'))
+  passed++
+}
 
 // ── summary ───────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════════════════════════')

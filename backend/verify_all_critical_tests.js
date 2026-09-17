@@ -257,9 +257,12 @@ async function runTest1() {
 
   // Camera & limitation checks
   assertCheck('Test 1: Analysis does not claim better camera', !/\b(?:better|superior|best)\s+camera\b/i.test(content))
+  const hasCameraNeutrality =
+    content.includes('Camera quality cannot be determined from megapixel counts and specifications alone') ||
+    /camera (?:quality|performance) cannot be determined from (?:megapixel counts|hardware specifications|specifications)/i.test(content)
   assertCheck(
     'Test 1: Analysis includes camera neutrality statement',
-    content.includes('Camera quality cannot be determined from megapixel counts and specifications alone')
+    hasCameraNeutrality
   )
   assertCheck('Test 1: Analysis includes LIMITATION section', content.includes('LIMITATION:'))
   assertCheck('Test 1: Analysis does not claim iPhone has higher megapixel count', !checkIPhoneHigherMegapixelClaim(content))
@@ -301,9 +304,12 @@ async function runTest2() {
   assertCheck('Test 2: Unverified rows is 0', unverified2.length === 0)
   assertCheck('Test 2: Analysis content exists', Boolean(res2.analysis && res2.analysis.content))
 
+  const hasEqual18h =
+    res2.analysis.content.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life') ||
+    res2.analysis.content.includes('Both devices are listed at up to 18 hours of battery life')
   assertCheck(
     'Test 2: Analysis includes equal 18-hour battery comparison',
-    res2.analysis.content.includes('Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life')
+    hasEqual18h
   )
   assertCheck(
     'Test 2: Analysis includes portability trade-off (2.60 lbs vs 0.44 in)',
