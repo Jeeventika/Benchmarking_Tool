@@ -1,0 +1,278 @@
+
+══════════════════════════════════════════════════════════════════
+PATH 1: INITIAL GENERATION (analysisService.js → generateAndSaveAnalysis)
+══════════════════════════════════════════════════════════════════
+  Simulates: Ollama output → checkNarrativeConsistency → INSERT disagreementFlag
+
+PASS [initial]: Galaxy 30h / iPhone 27h — no conflict
+  OK: Galaxy 30h / iPhone 27h — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Galaxy battery 30h + camera 200MP — no conflict
+  OK: Galaxy battery 30h + camera 200MP — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Galaxy battery analysis=26h vs evidence=30h — conflict
+  OK: Galaxy battery analysis=26h vs evidence=30h — conflict — narrative_value
+  OK: Galaxy battery analysis=26h vs evidence=30h — conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Galaxy battery analysis=25.5h vs evidence=30h — conflict (decimal)
+  OK: Galaxy battery analysis=25.5h vs evidence=30h — conflict (decimal) — narrative_value
+  OK: Galaxy battery analysis=25.5h vs evidence=30h — conflict (decimal) — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Galaxy battery analysis=25h vs evidence=30h — conflict
+  OK: Galaxy battery analysis=25h vs evidence=30h — conflict — narrative_value
+  OK: Galaxy battery analysis=25h vs evidence=30h — conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Galaxy battery analysis=30h vs evidence=30h — no conflict (control)
+  OK: Galaxy battery analysis=30h vs evidence=30h — no conflict (control) — INSERT disagreementFlag matches hasConflict
+PASS [initial]: BUG 1: Galaxy 30h / iPhone 27h in single sentence — no conflict
+  OK: BUG 1: Galaxy 30h / iPhone 27h in single sentence — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict
+  OK: BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict — narrative_value
+  OK: BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict
+  OK: BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: BUG 2: Camera multi-value single combined string — no conflict
+  OK: BUG 2: Camera multi-value single combined string — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict
+  OK: BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict — narrative_value
+  OK: BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict
+  OK: BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict — narrative_value
+  OK: BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Reviewer Issue 1: Battery association single sentence (Galaxy 30h, iPhone 27h) — no conflict
+  OK: Reviewer Issue 1: Battery association single sentence (Galaxy 30h, iPhone 27h) — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Reviewer Issue 2: Camera exact evidence repeated accurately — no conflict
+  OK: Reviewer Issue 2: Camera exact evidence repeated accurately — no conflict — INSERT disagreementFlag matches hasConflict
+PASS [initial]: Reviewer Issue 2: Camera telephoto 12MP alone not compared against first 48MP value — no conflict
+  OK: Reviewer Issue 2: Camera telephoto 12MP alone not compared against first 48MP value — no conflict — INSERT disagreementFlag matches hasConflict
+
+── Source-to-source disagreement (initial path) ──
+PASS [initial]: Source-to-source disagreement only (narrative silent) — no narrative conflict
+  OK: Source-to-source disagreement only (narrative silent) — no narrative conflict — INSERT disagreementFlag
+  Note: Narrative does not mention battery hours — checker correctly finds no narrative contradiction.
+PASS [initial]: Source-to-source disagreement AND narrative conflict — narrative conflict wins
+  OK: Source-to-source disagreement AND narrative conflict — narrative conflict wins — INSERT disagreementFlag
+  Note: Narrative 25h conflicts with evidence 30h; the checker detects it correctly.
+
+══════════════════════════════════════════════════════════════════
+PATH 2: FALLBACK REGENERATION (analysis.js → GET /:id/analysis)
+══════════════════════════════════════════════════════════════════
+  Simulates: stored fallback → new Ollama output → checkNarrativeConsistency → UPDATE disagreementFlag
+
+PASS [fallback]: Galaxy 30h / iPhone 27h — no conflict
+  OK: Galaxy 30h / iPhone 27h — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Galaxy battery 30h + camera 200MP — no conflict
+  OK: Galaxy battery 30h + camera 200MP — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Galaxy battery analysis=26h vs evidence=30h — conflict
+  OK: Galaxy battery analysis=26h vs evidence=30h — conflict — narrative_value
+  OK: Galaxy battery analysis=26h vs evidence=30h — conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Galaxy battery analysis=25.5h vs evidence=30h — conflict (decimal)
+  OK: Galaxy battery analysis=25.5h vs evidence=30h — conflict (decimal) — narrative_value
+  OK: Galaxy battery analysis=25.5h vs evidence=30h — conflict (decimal) — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Galaxy battery analysis=25h vs evidence=30h — conflict
+  OK: Galaxy battery analysis=25h vs evidence=30h — conflict — narrative_value
+  OK: Galaxy battery analysis=25h vs evidence=30h — conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Galaxy battery analysis=30h vs evidence=30h — no conflict (control)
+  OK: Galaxy battery analysis=30h vs evidence=30h — no conflict (control) — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: BUG 1: Galaxy 30h / iPhone 27h in single sentence — no conflict
+  OK: BUG 1: Galaxy 30h / iPhone 27h in single sentence — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict
+  OK: BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict — narrative_value
+  OK: BUG 1: Galaxy battery contradiction in single sentence (25h vs 30h) — conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict
+  OK: BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: BUG 2: Camera multi-value single combined string — no conflict
+  OK: BUG 2: Camera multi-value single combined string — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict
+  OK: BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict — narrative_value
+  OK: BUG 2: Camera main component contradiction (64MP vs 48MP) — conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict
+  OK: BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict — narrative_value
+  OK: BUG 2: Camera telephoto component contradiction (10MP vs 12MP) — conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Reviewer Issue 1: Battery association single sentence (Galaxy 30h, iPhone 27h) — no conflict
+  OK: Reviewer Issue 1: Battery association single sentence (Galaxy 30h, iPhone 27h) — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Reviewer Issue 2: Camera exact evidence repeated accurately — no conflict
+  OK: Reviewer Issue 2: Camera exact evidence repeated accurately — no conflict — UPDATE disagreementFlag matches hasConflict
+PASS [fallback]: Reviewer Issue 2: Camera telephoto 12MP alone not compared against first 48MP value — no conflict
+  OK: Reviewer Issue 2: Camera telephoto 12MP alone not compared against first 48MP value — no conflict — UPDATE disagreementFlag matches hasConflict
+
+── Source-to-source disagreement (fallback path) ──
+PASS [fallback]: Source-to-source disagreement only (narrative silent) — no narrative conflict
+  OK: Source-to-source disagreement only (narrative silent) — no narrative conflict — UPDATE disagreementFlag
+  Note: Narrative does not mention battery hours — checker correctly finds no narrative contradiction.
+PASS [fallback]: Source-to-source disagreement AND narrative conflict — narrative conflict wins
+  OK: Source-to-source disagreement AND narrative conflict — narrative conflict wins — UPDATE disagreementFlag
+  Note: Narrative 25h conflicts with evidence 30h; the checker detects it correctly.
+
+── Fallback: Ollama unavailable (cached fallback returned as-is) ──
+  PASS [fallback/timeout]: Ollama timeout — cached fallback returned, no re-check crash
+
+══════════════════════════════════════════════════════════════════
+AI-GENERATED ANALYSIS: BATTERY COMPARISON & NEUTRAL CAMERA SPECS
+══════════════════════════════════════════════════════════════════
+
+  OK: Grounded synthesis includes correct battery comparison (Galaxy 30h vs iPhone 27h)
+  OK: Grounded synthesis includes battery comparability testing conditions caveat
+  OK: Grounded synthesis does NOT state iPhone has longer battery life
+  OK: Grounded synthesis does NOT claim one camera is objectively better
+  OK: Grounded synthesis states camera quality cannot be determined from megapixel counts alone
+  OK: Grounded synthesis includes LIMITATION section
+  OK: Grounded synthesis has NO narrative conflict against evidence rows
+  OK: Sanitizer intercepts and eliminates inverted battery claim (iPhone longer)
+  OK: Sanitizer inserts accurate battery comparison (Galaxy 30h vs iPhone 27h)
+  OK: Sanitizer intercepts and eliminates "better camera" claim
+  OK: Sanitizer inserts neutral camera statement
+  OK: Sanitizer recovers from LLM numerical contradiction with conflict-free synthesis
+  OK: Analysis prompt includes retrieved evidence (30 hours & 27 hours)
+  OK: Analysis prompt includes explicit camera neutrality rule
+  OK: Analysis prompt includes explicit battery comparison rule
+  OK: Grounded synthesis includes exact corrected Things to consider text
+  OK: Grounded synthesis Things to consider does NOT say iPhone 17 has higher megapixel count
+  OK: Grounded synthesis Things to consider does NOT say iPhone 17 has longer battery life
+  OK: Sanitizer replaces hallucinated Things to consider with exact corrected text
+  OK: Sanitized Things to consider does NOT say iPhone 17 has a higher megapixel count
+  OK: Sanitized Things to consider does NOT say iPhone 17 has longer battery life
+  OK: Sanitized Things to consider has NO narrative conflict against evidence rows
+
+══════════════════════════════════════════════════════════════════
+AI-GENERATED ANALYSIS: MACBOOK AIR VS DELL XPS (BUGS 4 - 8)
+══════════════════════════════════════════════════════════════════
+
+  OK: Grounded synthesis states both laptops listed at up to 18 hours battery life
+  OK: Grounded synthesis does NOT claim either laptop has longer or better battery life
+  OK: Grounded synthesis includes correct portability trade-off (Dell 2.60 lbs, MacBook 0.44 in)
+  OK: Grounded synthesis does NOT claim MacBook Air is lighter
+  OK: Grounded synthesis does NOT claim Dell XPS is thinner
+  OK: Grounded synthesis states displays differ in resolution and refresh rate
+  OK: Grounded synthesis does NOT claim superior or best display quality
+  OK: Grounded synthesis states performance cannot be determined from processor names alone
+  OK: Grounded synthesis notes lower starting price for MacBook Air and differing baseline configurations
+  OK: Grounded synthesis includes MACBOOK_DELL_THINGS_TO_CONSIDER
+  OK: Grounded synthesis for MacBook Air vs Dell XPS has NO narrative conflict
+  OK: Sanitizer corrects misleading laptop battery claim to equal 18 hours
+  OK: Sanitizer corrects misleading portability claims
+  OK: Sanitizer corrects superior display claim
+  OK: Sanitizer corrects superior performance claim
+  OK: Sanitizer injects MACBOOK_DELL_THINGS_TO_CONSIDER
+  OK: Sanitized laptop analysis has NO narrative conflicts
+
+══════════════════════════════════════════════════════════════════
+AI-GENERATED ANALYSIS: MISSING-OTHER-ITEM BATTERY ATTRIBUTION
+══════════════════════════════════════════════════════════════════
+
+  OK: Missing iPhone evidence: Grounded synthesis explicitly states Galaxy 30h and missing iPhone evidence
+  OK: Missing iPhone evidence: Grounded synthesis does NOT generate incorrect sentence
+  OK: Missing iPhone evidence: Grounded synthesis does NOT claim Galaxy S26 has 27 hours
+  OK: Missing iPhone evidence: Grounded synthesis has NO narrative conflict
+  OK: Missing iPhone evidence: Sanitizer eliminates incorrect comparison sentence
+  OK: Missing iPhone evidence: Sanitizer injects safe verified statement
+  OK: Missing iPhone evidence: Sanitized text has NO narrative conflict
+  OK: Missing iPhone evidence: Claims classifier flags unsupported iPhone battery claim as unverified
+
+══════════════════════════════════════════════════════════════════
+SECTION 7: EXPLICIT 9 REGRESSION TEST SUITE
+══════════════════════════════════════════════════════════════════
+
+  OK: Regression Area 1 (Accurate sentence): hasConflict is false
+  OK: Regression Area 1 (Accurate sentence): conflicts array is empty
+  OK: Regression Area 2 (Reversed attribution): hasConflict is true
+  OK: Regression Area 2 (Reversed attribution): flags Galaxy S26 conflict
+  OK: Regression Area 2 (Reversed attribution): Galaxy narrative value is 27
+  OK: Regression Area 2 (Reversed attribution): Sanitizer eliminates reversed conflict
+  OK: Regression Area 3 (Changed evidence): Grounded synthesis dynamically includes 31 hours
+  OK: Regression Area 3 (Changed evidence): Grounded synthesis dynamically includes 26 hours
+  OK: Regression Area 3 (Changed evidence): Grounded synthesis does not hardcode 30 hours
+  OK: Regression Area 3 (Changed evidence): Grounded synthesis has NO narrative conflict
+  OK: Regression Area 3 (Changed evidence): Sanitizer dynamically corrects inverted claims to 31h and 26h
+  OK: Regression Area 3 (Changed evidence): Sanitized text has NO narrative conflict
+  OK: Regression Area 4 (Galaxy-only battery): Mentions Galaxy S26 30 hours
+  OK: Regression Area 4 (Galaxy-only battery): Explicitly flags iPhone battery as unverified/not provided
+  OK: Regression Area 4 (Galaxy-only battery): Does not invent 27 hours
+  OK: Regression Area 4 (Galaxy-only battery): Grounded synthesis has NO narrative conflict
+  OK: Regression Area 5 (Multi-value camera): Accurate narrative produces hasConflict false
+  OK: Regression Area 5 (Multi-value camera): 12MP telephoto alone does not conflict with 48MP
+  OK: Regression Area 5 (Multi-value camera): 10MP telephoto contradiction flags conflict
+  OK: Regression Area 5 (Multi-value camera): Contradiction evidence value is 12 (not 48)
+  OK: Regression Area 6 (Three-product): Accurate 3-product claims produce hasConflict false
+  OK: Regression Area 6 (Three-product): Contradiction on 3rd product flags conflict
+  OK: Regression Area 6 (Three-product): Conflict specifically bound to Pixel 11
+  OK: Regression Area 6 (Three-product): Pixel narrative value is 18
+  OK: Regression Area 7 (Missing doc extraction): Synthesis flags unverified findings explicitly
+  OK: Regression Area 7 (Missing doc extraction): Claims classifier flags ungrounded claim as potentially_unverified
+  OK: Regression Area 8 (Ollama timeout): generated_by marked as fallback
+  OK: Regression Area 8 (Ollama timeout): Fallback content contains grounded comparison
+  OK: Regression Area 8 (Ollama timeout): Fallback content has NO narrative conflict
+  OK: Regression Area 9 (Export): Contains BENCHMARKING REPORT header
+  OK: Regression Area 9 (Export): Contains SOURCE EVIDENCE & FACTS section
+  OK: Regression Area 9 (Export): Evidence rows include verified status tag
+  OK: Regression Area 9 (Export): Evidence rows include unverified status tag
+  OK: Regression Area 9 (Export): Contains AI-GENERATED ANALYSIS (INTERPRETATION ONLY) section
+  OK: Regression Area 9 (Export): Contains THINGS TO CONSIDER & LIMITATIONS section
+  OK: Regression Area 9 (Export): Contains CLAIMS GROUNDING AUDIT section
+  OK: Regression Area 9 (Export): Claims audit contains GROUNDED label
+  OK: Regression Area 9 (Export): Claims audit contains POTENTIALLY_UNVERIFIED label
+  OK: Regression Area 9 (Export): Contains FINAL USER DECISION section with User Override
+  OK: Regression Area 9 (Export): Includes override reason and note
+
+══════════════════════════════════════════════════════════════════
+SECTION 8: REVIEWER CASES 1 THROUGH 6
+══════════════════════════════════════════════════════════════════
+
+  OK: Case 1: Synthesis includes 40 hours
+  OK: Case 1: Synthesis includes 35 hours
+  OK: Case 1: Synthesis does not fallback to 30 hours
+  OK: Case 1: Synthesis does not fallback to 27 hours
+  OK: Case 1: Limitation reflects 40 hours and 35 hours
+  OK: Case 1: Synthesis has no narrative conflict
+  OK: Case 2: Synthesis does NOT convert 5000 mAh to 30 hours
+  OK: Case 2: Synthesis does NOT invent 27 hours for iPhone
+  OK: Case 2: Synthesis mentions 5000 mAh
+  OK: Case 2: Synthesis states battery-hour comparison cannot be established
+  OK: Case 2: Limitation statement withholds battery hours and states comparison cannot be established
+  OK: Case 2: Synthesis has no narrative conflict
+  OK: Case 2: Sanitizer strips 30 hours when only 5000 mAh is in evidence
+  OK: Case 2: Sanitizer strips 27 hours when no iPhone battery is in evidence
+  OK: Case 2: Sanitizer includes battery-hour comparison cannot be established
+  OK: Case 3: needs_review battery is NOT treated as verified evidence (no 30 hours in synthesis)
+  OK: Case 3: Synthesis does not mention 27 hours
+  OK: Case 3: Synthesis withholds battery numbers and states cannot be established
+  OK: Case 3: Sanitizer withholds 30 hours for needs_review battery
+  OK: Case 3: Sanitizer withholds 27 hours for unverified iPhone battery
+  OK: Case 3: Sanitizer states battery-hour comparison cannot be established
+  OK: Case 4: Missing iPhone battery is flagged as potentially unverified
+  OK: Case 4: Galaxy battery with verified evidence is grounded
+  OK: Case 5: Export report does NOT contain empty quotes for grounded claim
+  OK: Case 5: Export report includes claim text beside GROUNDED label
+  OK: Case 6: Export report does NOT contain empty quotes for unverified claim
+  OK: Case 6: Export report includes unverified claim text beside POTENTIALLY_UNVERIFIED label
+
+══════════════════════════════════════════════════════════════════
+SECTION 9: TEST 2 DISPLAY REFRESH RATE (120Hz) CASE A & CASE B
+══════════════════════════════════════════════════════════════════
+
+  OK: Case A: Standard 120Hz accepted
+  OK: Case A: Space variation "120 Hz" accepted
+  OK: Case A: Lowercase variation "120hz" accepted
+  OK: Case A: Lowercase space variation "120 hz" accepted
+  OK: Case A NC1: Wrong attribution (120Hz assigned to MacBook Air) rejected
+  OK: Case A NC2: Wrong refresh rate (144Hz) rejected
+  OK: Case B: Sanitizer injects neutral 120Hz display trade-off when omitted
+  OK: Case B: Sanitizer attributes 120Hz to Dell XPS
+  OK: Case B: Sanitizer does NOT claim overall display superiority
+  OK: Case B: Sanitized text has no narrative conflict
+
+══════════════════════════════════════════════════════════════════
+SECTION 10: TEST 2 NEUTRAL PERFORMANCE STATEMENT & SANITIZATION
+══════════════════════════════════════════════════════════════════
+
+  OK: Section 10: Standard lowercase neutral performance statement accepted
+  OK: Section 10: Capitalized "Performance cannot be determined..." accepted
+  OK: Section 10: Semantic equivalent "Processor names alone do not establish performance" accepted
+  OK: Section 10 NC1: "M3 is better than Intel" rejected
+  OK: Section 10 NC2: "Intel is faster than M3" rejected
+  OK: Section 10 NC3: "M3 is faster" rejected
+  OK: Section 10 NC4: "superior performance" rejected
+  OK: Section 10: Sanitizer injects neutral performance caution when omitted
+  OK: Section 10: Sanitized performance text has no narrative conflict
+  OK: Section 10: Sanitizer eliminates unsupported "M3 is better than Intel" claim
+  OK: Section 10: Sanitizer does not retain unsupported claim
+  OK: Section 10: Unrelated comparison without performance does NOT receive performance statement blindly
+
+══════════════════════════════════════════════════════════════════
+ALL 171 RUNTIME PATH ASSERTIONS PASSED
+══════════════════════════════════════════════════════════════════

@@ -1,0 +1,51 @@
+BENCHMARKING REPORT
+===================
+
+GOAL:
+Compare Attention Is All You Need (NeurIPS 2017) vs BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) for research methodology, evidence strength, and findings
+
+OPTIONS:
+Attention Is All You Need (NeurIPS 2017) vs BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)
+
+SYSTEM RECOMMENDATION:
+No supported recommendation (all candidate evidence is unverified)
+
+CONFIDENCE & RELIABILITY:
+Level: low
+Rationale: Low — no candidate possesses verified evidence. All retrieved data points remain unverified or pending review.
+
+SOURCE EVIDENCE & FACTS:
+- [Attention Is All You Need (NeurIPS 2017)] Dataset & Sample Size: "Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Dataset & Sample Size remain unverified." [Status: needs_review] (Source: Attention Is All You Need (NeurIPS 2017))
+- [Attention Is All You Need (NeurIPS 2017)] Evaluation Approach: "Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Evaluation Approach remain unverified." [Status: needs_review] (Source: Attention Is All You Need (NeurIPS 2017))
+- [Attention Is All You Need (NeurIPS 2017)] Limitations: "Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Limitations remain unverified." [Status: needs_review] (Source: Attention Is All You Need (NeurIPS 2017))
+- [Attention Is All You Need (NeurIPS 2017)] Methodology: "Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Methodology remain unverified." [Status: needs_review] (Source: Attention Is All You Need (NeurIPS 2017))
+- [Attention Is All You Need (NeurIPS 2017)] Study Design: "Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Study Design remain unverified." [Status: needs_review] (Source: Attention Is All You Need (NeurIPS 2017))
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Dataset & Sample Size: "Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Dataset & Sample Size remain unverified." [Status: needs_review] (Source: BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019))
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Evaluation Approach: "Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Evaluation Approach remain unverified." [Status: needs_review] (Source: BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019))
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Limitations: "Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Limitations remain unverified." [Status: needs_review] (Source: BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019))
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Methodology: "Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Methodology remain unverified." [Status: needs_review] (Source: BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019))
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Study Design: "Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Study Design remain unverified." [Status: needs_review] (Source: BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019))
+
+AI-GENERATED ANALYSIS (INTERPRETATION ONLY):
+Attention Is All You Need (NeurIPS 2017) outlines: Study Design: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Study Design remain unverified.; Methodology: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Dataset & Sample Size remain unverified.; Evaluation Approach: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Evaluation Approach remain unverified.; Limitations: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Limitations remain unverified.. BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) outlines: Study Design: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Study Design remain unverified.; Methodology: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Dataset & Sample Size remain unverified.; Evaluation Approach: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Evaluation Approach remain unverified.; Limitations: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Limitations remain unverified..
+
+THINGS TO CONSIDER & LIMITATIONS:
+Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.
+
+CLAIMS GROUNDING AUDIT:
+- [Attention Is All You Need (NeurIPS 2017)] Study Design: "Attention Is All You Need (NeurIPS 2017) reports Study Design of Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Study Design remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [Attention Is All You Need (NeurIPS 2017)] Methodology: "Attention Is All You Need (NeurIPS 2017) reports Methodology of Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Methodology remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [Attention Is All You Need (NeurIPS 2017)] Dataset & Sample Size: "Attention Is All You Need (NeurIPS 2017) reports Dataset & Sample Size of Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Dataset & Sample Size remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [Attention Is All You Need (NeurIPS 2017)] Evaluation Approach: "Attention Is All You Need (NeurIPS 2017) reports Evaluation Approach of Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Evaluation Approach remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [Attention Is All You Need (NeurIPS 2017)] Limitations: "Attention Is All You Need (NeurIPS 2017) reports Limitations of Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Limitations remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Study Design: "BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) reports Study Design of Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Study Design remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Methodology: "BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) reports Methodology of Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Methodology remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Dataset & Sample Size: "BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) reports Dataset & Sample Size of Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Dataset & Sample Size remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Evaluation Approach: "BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) reports Evaluation Approach of Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Evaluation Approach remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+- [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Limitations: "BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) reports Limitations of Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Limitations remain unverified.." [Label: POTENTIALLY_UNVERIFIED]
+
+FINAL USER DECISION:
+Status: User Override
+Chosen Option: Attention Is All You Need (NeurIPS 2017)
+Override Reason: Task-specific need for sequence transduction architecture
+Override Note: "Selected Transformer for translation tasks."

@@ -317,14 +317,59 @@ function checkDell120HzDisplayTradeoff(text) {
   return dellHas120 && !macbookHas120 && !hasWrongValue
 }
 
+function checkNeutralPerformanceStatement(text) {
+  if (!text || typeof text !== 'string') return false
+
+  // Accepts semantic meaning or acceptable equivalent wording conveying that
+  // processor names alone do not establish/determine performance
+  const hasNeutralMeaning =
+    /performance\s+cannot\s+be\s+(?:determined|judged|evaluated|measured|established)\s+(?:from|by)\s+processor\s+names\s+alone/i.test(
+      text
+    ) ||
+    /processor\s+names\s+alone\s+do\s+not\s+(?:establish|determine|indicate|prove)\s+performance/i.test(
+      text
+    ) ||
+    /actual\s+performance\s+cannot\s+be\s+(?:determined|judged|evaluated)\s+(?:from|by)\s+processor\s+names/i.test(
+      text
+    ) ||
+    /(?:cannot\s+(?:determine|judge|establish)\s+performance\s+(?:from|by)\s+processor\s+names\s+alone)/i.test(
+      text
+    )
+
+  // Negative controls: Reject unsupported performance superiority claims
+  const hasUnsupportedSuperiority =
+    /(?:m3|macbook)\s+(?:is\s+)?(?:better|faster|superior|more powerful)\s+than\s+(?:intel|dell|xps)/i.test(
+      text
+    ) ||
+    /(?:intel|dell|xps)\s+(?:is\s+)?(?:better|faster|superior|more powerful)\s+than\s+(?:m3|macbook)/i.test(
+      text
+    ) ||
+    /\b(?:m3|intel)\s+is\s+(?:better|faster|superior)\b/i.test(text) ||
+    /(?:macbook|dell|xps)\s+offers?\s+(?:superior|better|faster)\s+performance/i.test(text)
+
+  return hasNeutralMeaning && !hasUnsupportedSuperiority
+}
+
 async function runTest2() {
   console.log('--- TEST 2: Natural-language comparison without explicit criteria ---')
   console.log('Prompt: "Which is better for a student, MacBook Air or Dell XPS?"')
   const id2 = await createComp({ prompt: 'Which is better for a student, MacBook Air or Dell XPS?' })
   const res2 = await inspectComp(id2)
 
+  console.log('Synthesis Mode (Test 2):', res2.analysis?.generated_by || 'unknown')
   console.log('Identified Items:', res2.items.map((i) => i.name))
   console.log('Inferred Criteria:', res2.comparison.criteria)
+
+  const dellDisplay = res2.evidence.find(
+    (e) => /dell/i.test(e.item_name) && /display|screen/i.test(e.criterion)
+  )
+  console.log(
+    'Dell Display Evidence:',
+    dellDisplay
+      ? `"${dellDisplay.result}" | Status: ${dellDisplay.evidence_status || 'reliable'} | Source: ${dellDisplay.source_name}`
+      : 'Not found'
+  )
+
   console.log('Evidence Sample:')
   res2.evidence.slice(0, 4).forEach((e) =>
     console.log(`  [${e.item_name}] ${e.criterion}: "${e.result.slice(0, 60)}..." | Source: ${e.source_name} | URL: ${e.source_url}`)
@@ -363,9 +408,14 @@ async function runTest2() {
     'Test 2: Analysis includes display refresh rate trade-off (120Hz)',
     dell120HzTradeoff && ncWrongAttr && ncWrongValue
   )
+
+  const neutralPerf = checkNeutralPerformanceStatement(res2.analysis.content)
+  const ncM3Better = checkNeutralPerformanceStatement('MacBook Air M3 is better than Intel with superior performance.') === false
+  const ncIntelFaster = checkNeutralPerformanceStatement('Dell XPS Intel is faster than MacBook Air M3.') === false
+
   assertCheck(
     'Test 2: Analysis includes neutral performance statement',
-    res2.analysis.content.includes('performance cannot be determined from processor names alone')
+    neutralPerf && ncM3Better && ncIntelFaster
   )
   assertCheck(
     'Test 2: Analysis includes starting prices for MacBook Air and Dell XPS',

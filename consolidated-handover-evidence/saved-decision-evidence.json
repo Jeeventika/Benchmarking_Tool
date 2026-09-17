@@ -1,0 +1,40 @@
+[
+  {
+    "decision_id": 10,
+    "comparison_id": 149,
+    "accepted_recommendation": true,
+    "chosen_item_id": 320,
+    "chosen_item_name": "iPhone 17",
+    "override_reason": null,
+    "override_note": "Decision confirmed during E2E verification",
+    "created_at": "2026-09-17T17:25:25.942Z",
+    "goal": "Compare iPhone 17 vs Galaxy S26",
+    "criteria": [
+      "Camera",
+      "Battery Life",
+      "Price"
+    ],
+    "generated_by": "fallback",
+    "analysis_content": "The phones have different camera configurations. The iPhone 17 lists a 48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto, while the Galaxy S26 lists a 200MP main camera and additional telephoto cameras. Camera quality cannot be determined from megapixel counts and specifications alone. The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours. Based on the retrieved video-playback figures, the Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17. These figures may not be directly comparable if the testing conditions differ. The iPhone 17 has a lower starting price at $999 for 128GB, compared with the Galaxy S26 at $1,299.99 for 256GB. Baseline storage and configurations differ.\n\nLIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance."
+  },
+  {
+    "decision_id": 11,
+    "comparison_id": 150,
+    "accepted_recommendation": false,
+    "chosen_item_id": 322,
+    "chosen_item_name": "Attention Is All You Need (NeurIPS 2017)",
+    "override_reason": "Task-specific need for sequence transduction architecture",
+    "override_note": "Selected Transformer for translation tasks.",
+    "created_at": "2026-09-17T17:25:26.066Z",
+    "goal": "Compare Attention Is All You Need (NeurIPS 2017) vs BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) for research methodology, evidence strength, and findings",
+    "criteria": [
+      "Study Design",
+      "Methodology",
+      "Dataset & Sample Size",
+      "Evaluation Approach",
+      "Limitations"
+    ],
+    "generated_by": "fallback",
+    "analysis_content": "Attention Is All You Need (NeurIPS 2017) outlines: Study Design: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Study Design remain unverified.; Methodology: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Dataset & Sample Size remain unverified.; Evaluation Approach: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Evaluation Approach remain unverified.; Limitations: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Limitations remain unverified.. BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) outlines: Study Design: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Study Design remain unverified.; Methodology: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Dataset & Sample Size remain unverified.; Evaluation Approach: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Evaluation Approach remain unverified.; Limitations: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Limitations remain unverified..\n\nLIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment."
+  }
+]

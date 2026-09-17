@@ -1,0 +1,35 @@
+COMPLETE AI ANALYSIS CONTENT (TEST 2: MacBook Air vs Dell XPS)
+================================================================
+
+Analysis Narrative:
+Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life, although testing conditions may differ. The Dell XPS has a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Portability depends on both weight, thickness, and user preference. The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions. The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the user’s needs. The MacBook Air has a lower starting price at $1,099, compared with $1,299 for the Dell XPS. Baseline configurations and storage options may differ.
+
+LIMITATION: Both laptops offer distinct trade-offs for student and portable computing. Both devices are listed at up to 18 hours of battery life, although manufacturer testing conditions may differ. The Dell XPS features a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Display and performance trade-offs depend on software ecosystem, resolution versus refresh rate preferences, and individual workloads.
+
+----------------------------------------------------------------
+SYNTHESIS MODE:
+fallback (deterministic grounded synthesis)
+
+DELL DISPLAY EVIDENCE:
+"13.4-inch InfinityEdge display with 1920x1200 FHD+ resolution at 500 nits and 120Hz refresh rate"
+Evidence Status: reliable / verified
+Source: Dell Official Display Specifications
+URL: https://www.dell.com/en-us/shop/dell-laptops/xps-13-laptop/spd/xps-13-9340-laptop
+Method: Panel luminance and refresh rate testing under sRGB 100% calibration
+Conditions: Eyesafe low blue light technology active
+
+MACBOOK AIR DISPLAY EVIDENCE:
+"13.6-inch Liquid Retina display with 2560x1664 native resolution at 224 ppi with 500 nits brightness"
+Evidence Status: reliable / verified
+Source: Apple Official Technical Specifications (Display Section)
+URL: https://www.apple.com/macbook-air/specs/
+
+DELL PERFORMANCE EVIDENCE:
+"Intel Core Ultra 7 155H (16 cores, up to 4.8 GHz) with Intel Arc Graphics and integrated NPU"
+Evidence Status: reliable / verified
+Source: Dell Official Technical Specifications (Processor Details)
+
+MACBOOK AIR PERFORMANCE EVIDENCE:
+"Apple M3 chip with 8-core CPU (4 performance and 4 efficiency cores) and hardware-accelerated ray tracing"
+Evidence Status: reliable / verified
+Source: Apple Official Technical Specifications (Chip Architecture)

@@ -1436,6 +1436,114 @@ console.log('══════════════════════�
   passed++
 }
 
+// ══════════════════════════════════════════════════════════════════
+// SECTION 10: TEST 2 NEUTRAL PERFORMANCE STATEMENT & SANITIZATION
+// ══════════════════════════════════════════════════════════════════
+console.log('\n══════════════════════════════════════════════════════════════════')
+console.log('SECTION 10: TEST 2 NEUTRAL PERFORMANCE STATEMENT & SANITIZATION')
+console.log('══════════════════════════════════════════════════════════════════\n')
+
+function checkNeutralPerformanceStatement(text) {
+  if (!text || typeof text !== 'string') return false
+  const hasNeutralMeaning =
+    /performance\s+cannot\s+be\s+(?:determined|judged|evaluated|measured|established)\s+(?:from|by)\s+processor\s+names\s+alone/i.test(
+      text
+    ) ||
+    /processor\s+names\s+alone\s+do\s+not\s+(?:establish|determine|indicate|prove)\s+performance/i.test(
+      text
+    ) ||
+    /actual\s+performance\s+cannot\s+be\s+(?:determined|judged|evaluated)\s+(?:from|by)\s+processor\s+names/i.test(
+      text
+    ) ||
+    /(?:cannot\s+(?:determine|judge|establish)\s+performance\s+(?:from|by)\s+processor\s+names\s+alone)/i.test(
+      text
+    )
+
+  const hasUnsupportedSuperiority =
+    /(?:m3|macbook)\s+(?:is\s+)?(?:better|faster|superior|more powerful)\s+than\s+(?:intel|dell|xps)/i.test(
+      text
+    ) ||
+    /(?:intel|dell|xps)\s+(?:is\s+)?(?:better|faster|superior|more powerful)\s+than\s+(?:m3|macbook)/i.test(
+      text
+    ) ||
+    /\b(?:m3|intel)\s+is\s+(?:better|faster|superior)\b/i.test(text) ||
+    /(?:macbook|dell|xps)\s+offers?\s+(?:superior|better|faster)\s+performance/i.test(text)
+
+  return hasNeutralMeaning && !hasUnsupportedSuperiority
+}
+
+// 1. Semantic variations accepted
+{
+  const textStd = 'The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload.'
+  const textCap = 'MacBook uses M3 and Dell uses Intel. Performance cannot be determined from processor names alone.'
+  const textAlt = 'Processor names alone do not establish performance between Apple M3 and Intel Core Ultra 7.'
+
+  assert('Section 10: Standard lowercase neutral performance statement accepted', true, checkNeutralPerformanceStatement(textStd))
+  passed++
+  assert('Section 10: Capitalized "Performance cannot be determined..." accepted', true, checkNeutralPerformanceStatement(textCap))
+  passed++
+  assert('Section 10: Semantic equivalent "Processor names alone do not establish performance" accepted', true, checkNeutralPerformanceStatement(textAlt))
+  passed++
+
+  // 2. Negative controls: unsupported superiority claims rejected
+  const textM3Better = 'The MacBook Air M3 is better than Intel with superior performance.'
+  const textIntelFaster = 'Dell XPS Intel Core Ultra 7 is faster than M3.'
+  const textM3Faster = 'The M3 chip is faster.'
+  const textSuperiorPerf = 'MacBook Air offers superior performance for creative tasks.'
+
+  assert('Section 10 NC1: "M3 is better than Intel" rejected', false, checkNeutralPerformanceStatement(textM3Better))
+  passed++
+  assert('Section 10 NC2: "Intel is faster than M3" rejected', false, checkNeutralPerformanceStatement(textIntelFaster))
+  passed++
+  assert('Section 10 NC3: "M3 is faster" rejected', false, checkNeutralPerformanceStatement(textM3Faster))
+  passed++
+  assert('Section 10 NC4: "superior performance" rejected', false, checkNeutralPerformanceStatement(textSuperiorPerf))
+  passed++
+}
+
+// 3. Sanitizer: injects neutral performance caution when omitted in laptop comparison
+{
+  const laptopCompWithPerf = { criteria: ['Performance', 'Battery Life'] }
+  const laptopItems = [{ id: 1, name: 'MacBook Air' }, { id: 2, name: 'Dell XPS' }]
+  const laptopEvWithPerf = [
+    { comparison_item_id: 1, item_name: 'MacBook Air', criterion: 'Performance', result: 'Apple M3 chip with 8-core CPU', evidence_status: 'verified', source_name: 'Apple Specs' },
+    { comparison_item_id: 2, item_name: 'Dell XPS', criterion: 'Performance', result: 'Intel Core Ultra 7 155H', evidence_status: 'verified', source_name: 'Dell Specs' },
+    { comparison_item_id: 1, item_name: 'MacBook Air', criterion: 'Battery Life', result: '18 hours', evidence_status: 'verified', source_name: 'Apple Specs' },
+    { comparison_item_id: 2, item_name: 'Dell XPS', criterion: 'Battery Life', result: '18 hours', evidence_status: 'verified', source_name: 'Dell Specs' },
+  ]
+
+  // Case: Ollama generated text with processor description but omitted the neutral caution
+  const textOmitsPerfNeutral = 'Both laptops provide up to 18 hours of battery life. The MacBook Air features the Apple M3 chip, while Dell XPS uses Intel Core Ultra 7.\n\nLIMITATION: Specifications may vary.'
+  const sanitizedPerfOmission = validateAndSanitizeAnalysis(textOmitsPerfNeutral, laptopCompWithPerf, laptopItems, laptopEvWithPerf, [])
+
+  assert('Section 10: Sanitizer injects neutral performance caution when omitted', true, checkNeutralPerformanceStatement(sanitizedPerfOmission))
+  passed++
+  assert('Section 10: Sanitized performance text has no narrative conflict', false, checkNarrativeConsistency(sanitizedPerfOmission, laptopEvWithPerf, laptopItems).hasConflict)
+  passed++
+
+  // Case: Ollama generated an unsupported claim like "M3 is better than Intel"
+  const textUnsupportedPerf = 'The MacBook Air M3 is better than Intel with faster performance.\n\nLIMITATION: Workloads vary.'
+  const sanitizedSuperiority = validateAndSanitizeAnalysis(textUnsupportedPerf, laptopCompWithPerf, laptopItems, laptopEvWithPerf, [])
+
+  assert('Section 10: Sanitizer eliminates unsupported "M3 is better than Intel" claim', true, checkNeutralPerformanceStatement(sanitizedSuperiority))
+  passed++
+  assert('Section 10: Sanitizer does not retain unsupported claim', false, /m3\s+is\s+better\s+than\s+intel/i.test(sanitizedSuperiority))
+  passed++
+
+  // Case: Unrelated comparison without performance criterion does NOT receive performance statement blindly
+  const phoneCompNoPerf = { criteria: ['Camera', 'Battery Life'] }
+  const phoneItems = [{ id: 1, name: 'Phone A' }, { id: 2, name: 'Phone B' }]
+  const phoneEvNoPerf = [
+    { comparison_item_id: 1, item_name: 'Phone A', criterion: 'Camera', result: '48MP', evidence_status: 'verified', source_name: 'Phone A Specs' },
+    { comparison_item_id: 2, item_name: 'Phone B', criterion: 'Camera', result: '50MP', evidence_status: 'verified', source_name: 'Phone B Specs' },
+  ]
+  const phoneText = 'Phone A and Phone B both offer capable cameras.\n\nLIMITATION: Testing conditions vary.'
+  const sanitizedPhone = validateAndSanitizeAnalysis(phoneText, phoneCompNoPerf, phoneItems, phoneEvNoPerf, [])
+
+  assert('Section 10: Unrelated comparison without performance does NOT receive performance statement blindly', false, /performance\s+cannot\s+be\s+determined/i.test(sanitizedPhone))
+  passed++
+}
+
 // ── summary ───────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════════════════════════')
 if (failed === 0) {

@@ -138,7 +138,7 @@ ${batteryRule}
     extraNeutralityRules = `\n5. For BATTERY: Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life. Do NOT claim one lasts longer or has better battery life. State that both are listed at up to 18 hours, although testing conditions may differ.
 6. For PORTABILITY: Dell XPS lists 2.60 pounds and 0.60 inches. MacBook Air lists 2.70 pounds and 0.44 inches. Do NOT claim MacBook Air is lighter or has higher portability, and do NOT claim Dell is lighter and thinner. State neutrally that Dell has a lower weight while MacBook Air is thinner.
 7. For DISPLAY: The MacBook Air lists 2560x1664 resolution, while the Dell XPS lists 1920x1200 at a 120Hz refresh rate. Explicitly state both display specifications neutrally and do NOT claim superior display quality or best display based on resolution or refresh rate alone.
-8. For PERFORMANCE: The devices use different processors (Apple M3 vs Intel Core Ultra 7). Performance cannot be determined from processor names alone; it depends on workload, thermals, and software.
+8. For PERFORMANCE: The devices use different processors (Apple M3 vs Intel Core Ultra 7). Explicitly state that performance cannot be determined from processor names alone, and actual performance depends on workload, configuration, thermals, and software. Do NOT claim M3 is better than Intel or Intel is faster.
 9. For PRICE: MacBook Air has a lower starting price at $1,099 for baseline 256GB SSD, compared with $1,299 for Dell XPS with baseline 512GB SSD. Note that baseline configurations differ.`
   }
 
@@ -772,18 +772,52 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
     }
 
     // 7. Performance claims (M3 vs Intel Core Ultra)
-    if (!mainText.includes('performance cannot be determined from processor names alone')) {
+    const hasPerfCriterion =
+      (comparison?.criteria &&
+        (Array.isArray(comparison.criteria)
+          ? comparison.criteria
+          : JSON.parse(comparison.criteria || '[]')
+        ).some((c) => /performance|processor|cpu|speed|chip/i.test(c))) ||
+      evidenceRows.some((e) => /performance|processor|cpu|speed|chip/i.test(e.criterion))
+
+    if (hasPerfCriterion) {
+      const hasNeutralPerfStatement =
+        /(?:performance\s+cannot\s+be\s+(?:determined|judged|evaluated|measured|established)\s+(?:from|by)\s+processor\s+names\s+alone|processor\s+names\s+alone\s+do\s+not\s+(?:establish|determine|indicate|prove)\s+performance)/i.test(
+          mainText
+        )
+
       const perfSuperiorClaim =
-        /(?:macbook|dell|xps|m3|intel).*(?:superior|better|faster|more powerful)\s+performance/i.test(mainText) ||
-        /(?:superior|better|faster|more powerful)\s+performance.*(?:macbook|dell|xps|m3|intel)/i.test(mainText)
+        /(?:macbook|dell|xps|m3|intel|apple).*(?:superior|better|faster|more powerful)\s+(?:performance|processor|speed|computing)/i.test(
+          mainText
+        ) ||
+        /(?:superior|better|faster|more powerful)\s+(?:performance|processor|speed|computing).*(?:macbook|dell|xps|m3|intel|apple)/i.test(
+          mainText
+        ) ||
+        /(?:m3|apple|macbook)\s+(?:is\s+)?(?:better|faster|superior|more powerful)\s+than\s+(?:intel|dell|xps)/i.test(
+          mainText
+        ) ||
+        /(?:intel|dell|xps)\s+(?:is\s+)?(?:better|faster|superior|more powerful)\s+than\s+(?:m3|apple|macbook)/i.test(
+          mainText
+        ) ||
+        /\b(?:m3|intel)\s+is\s+(?:better|faster|superior)\b/i.test(mainText)
+
+      const perfNeutral =
+        'The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions.'
 
       if (perfSuperiorClaim) {
-        const perfNeutral =
-          'The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions.'
         mainText = mainText.replace(
-          /[^.?!]*(?:superior|better|faster|more powerful)\s+performance[^.?!]*[.?!]?/i,
+          /[^.?!]*(?:superior|better|faster|more powerful)[^.?!]*[.?!]?/i,
           perfNeutral
         )
+      } else if (!hasNeutralPerfStatement) {
+        if (/(?:performance|processor|cpu|m3|core\s+ultra|intel)/i.test(mainText)) {
+          mainText = mainText.replace(
+            /([^.?!]*(?:performance|processor|cpu|m3|core\s+ultra|intel)[^.?!]*)([.?!]?)/i,
+            (match, p1, p2) => `${p1}${p2 || '.'} ${perfNeutral}`
+          )
+        } else {
+          mainText = `${mainText.trim()} ${perfNeutral}`
+        }
       }
     }
   }

@@ -1,0 +1,105 @@
+
+--- CASE 1: Two products, matching values, no conflict ---
+PASS: Galaxy 30 hours vs iPhone 27 hours — no conflict — no conflict
+
+--- CASE 2: Same item, two criteria, matching values, no conflict ---
+PASS: Galaxy S26 battery 30 hours vs camera 200 MP — no conflict — no conflict
+
+--- CASE 3: Analysis says 26 hours vs evidence 30 hours — conflict ---
+PASS: Galaxy S26 battery 26 hours vs evidence 30 hours — conflict — conflict
+  ASSERT PASS: Case 3 narrative_value is 26
+
+--- CASE 4: Analysis says 25.5 hours vs evidence 30 hours — conflict ---
+PASS: Galaxy S26 battery 25.5 hours vs evidence 30 hours — conflict — conflict
+  ASSERT PASS: Case 4 narrative_value is 25.5 (decimal preserved)
+
+--- ORIGINAL CASE: Analysis says 25 hours vs evidence 30 hours — conflict ---
+PASS: Galaxy S26 battery 25 hours vs evidence 30 hours — conflict — conflict
+  ASSERT PASS: Original case narrative_value is 25
+
+--- CONTROL CASE: Analysis says 30 hours vs evidence 30 hours — no conflict ---
+PASS: Galaxy S26 battery 30 hours vs evidence 30 hours — no conflict — no conflict
+
+--- EXTRA A: Camera 200 MP must not trigger battery conflict ---
+PASS: Camera MP value must not compare against battery hours evidence — no conflict — no conflict
+
+--- EXTRA B: Model number 26 in item name must not be treated as battery life ---
+PASS: Galaxy S26 model number — 26 not treated as battery life — no conflict — no conflict
+
+--- EXTRA C: Source-to-source disagreement — checker sees no narrative conflict ---
+PASS: Source-to-source disagreement (no narrative) — no narrative conflict — no conflict
+
+--- EXTRA D: Narrative conflicts with one of two disagreeing sources ---
+PASS: Narrative 25 h with source disagreement (30 h / 27 h) — narrative conflict detected — conflict
+
+--- EXTRA E: iPhone 17 27 h must not conflict with Galaxy 30 h evidence ---
+PASS: iPhone 17 27 hours correct — no conflict with Galaxy evidence — no conflict
+
+--- BUG 1: Same-sentence multi-product attribution ---
+PASS: BUG 1: Galaxy 30h and iPhone 27h in ONE sentence — no conflict — no conflict
+  ASSERT PASS: BUG 1: No conflicts returned for valid single-sentence multi-product claim
+PASS: BUG 1: Same-sentence Galaxy contradiction detected (25h vs 30h) — conflict
+  ASSERT PASS: BUG 1: Galaxy contradiction narrative_value is 25
+  ASSERT PASS: BUG 1: Galaxy contradiction item_name is Galaxy S26
+PASS: BUG 1: Same-sentence iPhone contradiction detected (20h vs 27h) — conflict
+  ASSERT PASS: BUG 1: iPhone contradiction narrative_value is 20
+  ASSERT PASS: BUG 1: iPhone contradiction item_name is iPhone 17
+
+--- BUG 2: Camera multi-value attribution ---
+PASS: BUG 2: Camera multi-value separate rows (48MP main, 48MP ultra-wide, 12MP telephoto) — no conflict — no conflict
+  ASSERT PASS: BUG 2 (separate rows): No conflicts returned for valid multi-value camera claim
+PASS: BUG 2: Camera multi-value single combined string — no conflict — no conflict
+  ASSERT PASS: BUG 2 (combined string): No conflicts returned for valid multi-value camera claim
+PASS: BUG 2: Camera main component contradiction detected (64MP vs 48MP) — conflict
+  ASSERT PASS: BUG 2: Main camera contradiction narrative_value is 64
+  ASSERT PASS: BUG 2: Main camera contradiction evidence_value is 48
+PASS: BUG 2: Camera telephoto component contradiction detected (10MP vs 12MP) — conflict
+  ASSERT PASS: BUG 2: Telephoto contradiction narrative_value is 10
+  ASSERT PASS: BUG 2: Telephoto contradiction evidence_value is 12
+
+--- DEDICATED REGRESSION: REVIEWER ISSUE 1 — Battery Association ---
+  ASSERT PASS: Reviewer Issue 1: Galaxy S26 has exactly 1 measurement associated
+  ASSERT PASS: Reviewer Issue 1: Galaxy S26 is associated with 30 hours
+  ASSERT PASS: Reviewer Issue 1: Galaxy S26 unit is hours
+  ASSERT PASS: Reviewer Issue 1: iPhone 17 has exactly 1 measurement associated
+  ASSERT PASS: Reviewer Issue 1: iPhone 17 is associated with 27 hours
+  ASSERT PASS: Reviewer Issue 1: iPhone 17 unit is hours
+  ASSERT PASS: Reviewer Issue 1: Checker does not attribute both values to Galaxy S26 (27h not in S26 measurements)
+  ASSERT PASS: Reviewer Issue 1: Galaxy S26 count is strictly 1 (not 2)
+  ASSERT PASS: Reviewer Issue 1: No false warning produced (hasConflict is false)
+  ASSERT PASS: Reviewer Issue 1: No false warning produced (conflicts count is 0)
+
+--- DEDICATED REGRESSION: REVIEWER ISSUE 2 — Camera Component Association ---
+  ASSERT PASS: Reviewer Issue 2: Extracted 3 camera measurements
+  ASSERT PASS: Reviewer Issue 2: Main camera component detected
+  ASSERT PASS: Reviewer Issue 2: Main camera = 48MP
+  ASSERT PASS: Reviewer Issue 2: Main camera unit = mp
+  ASSERT PASS: Reviewer Issue 2: Ultra Wide camera component detected
+  ASSERT PASS: Reviewer Issue 2: Ultra Wide camera = 48MP
+  ASSERT PASS: Reviewer Issue 2: Ultra Wide camera unit = mp
+  ASSERT PASS: Reviewer Issue 2: Telephoto camera component detected
+  ASSERT PASS: Reviewer Issue 2: Telephoto camera = 12MP
+  ASSERT PASS: Reviewer Issue 2: Telephoto camera unit = mp
+  ASSERT PASS: Reviewer Issue 2: Checker does not compare 12MP telephoto against first 48MP value (no false warning)
+  ASSERT PASS: Reviewer Issue 2: 12MP telephoto alone produces 0 conflicts
+  ASSERT PASS: Reviewer Issue 2: Contradictory 10MP telephoto flags a conflict
+  ASSERT PASS: Reviewer Issue 2: Telephoto contradiction compared against 12MP telephoto evidence (NOT 48MP)
+  ASSERT PASS: Reviewer Issue 2: Telephoto contradiction narrative_value is 10
+  ASSERT PASS: Reviewer Issue 2: Accurate narrative repeating values is not flagged (hasConflict is false)
+  ASSERT PASS: Reviewer Issue 2: Accurate narrative repeating values produces 0 conflicts
+
+--- DEDICATED REGRESSION: Missing-Other-Item Battery Attribution ---
+  ASSERT PASS: Missing-Other-Item: Galaxy S26 has exactly 1 measurement associated
+  ASSERT PASS: Missing-Other-Item: Galaxy S26 is associated with 30 hours
+  ASSERT PASS: Missing-Other-Item: Galaxy S26 unit is hours
+  ASSERT PASS: Missing-Other-Item: Checker does not attribute 27h to Galaxy S26 (27h not in S26 measurements)
+  ASSERT PASS: Missing-Other-Item: Galaxy S26 count is strictly 1 (no cross-item attribution)
+  ASSERT PASS: Missing-Other-Item: iPhone 17 has exactly 1 measurement associated
+  ASSERT PASS: Missing-Other-Item: iPhone 17 is associated with 27 hours
+  ASSERT PASS: Missing-Other-Item: iPhone 17 unit is hours
+  ASSERT PASS: Missing-Other-Item: No false contradiction produced (hasConflict is false)
+  ASSERT PASS: Missing-Other-Item: No false contradiction produced (conflicts count is 0)
+
+================================================================
+ALL 21 TESTS PASSED
+================================================================

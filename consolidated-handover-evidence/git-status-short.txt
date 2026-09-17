@@ -1,0 +1,5 @@
+ M backend/src/services/analysisGenerationHelper.js
+ M backend/test-runtime-paths.mjs
+ M backend/verify_all_critical_tests.js
+?? backend/critical-run-log.txt
+?? consolidated-handover-evidence/

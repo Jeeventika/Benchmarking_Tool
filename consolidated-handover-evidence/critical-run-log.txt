@@ -1,0 +1,146 @@
+================================================================
+CRITICAL VERIFICATION SUITE ΓÇö CODE FREEZE TEST SUITE
+================================================================
+
+--- TEST 1: Natural-language product comparison ---
+Prompt: "Compare iPhone 17 and Galaxy S26 for camera, battery life and price."
+Ollama analysis bypassed or timed out, using grounded synthesis
+Identified Items: [ 'iPhone 17', 'Galaxy S26' ]
+Criteria: [ 'Camera', 'Battery Life', 'Price' ]
+Evidence Sample:
+  [iPhone 17] Camera: "48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Teleph..." | Source: Apple Official Technical Specifications (Camera System) | URL: https://www.apple.com/iphone-16-pro/specs/
+  [iPhone 17] Battery Life: "Up to 27 hours continuous video playback on a single charge..." | Source: Apple Official Technical Specifications & Battery Testing | URL: https://www.apple.com/iphone-16-pro/specs/
+  [iPhone 17] Price: "$999 starting MSRP for 128GB baseline configuration..." | Source: Apple Official Retail Store Pricing | URL: https://www.apple.com/shop/buy-iphone/iphone-16-pro
+  [Galaxy S26] Camera: "200MP Wide main camera, 50MP 5x Telephoto, 10MP 3x Telephoto..." | Source: Samsung Official Technical Specifications | URL: https://www.samsung.com/us/smartphones/galaxy-s24-ultra/specs/
+  [Galaxy S26] Battery Life: "5,000 mAh battery capacity rated for up to 30 hours continuo..." | Source: Samsung Official Technical Specifications | URL: https://www.samsung.com/us/smartphones/galaxy-s24-ultra/specs/
+  [Galaxy S26] Price: "$1,299.99 starting MSRP for 256GB baseline configuration..." | Source: Samsung Official Retail Store Pricing | URL: https://www.samsung.com/us/smartphones/galaxy-s24-ultra/buy/
+Unverified rows in Test 1: 0 (Expected: 0)
+
+Complete AI Analysis Content (Test 1):
+The phones have different camera configurations. The iPhone 17 lists a 48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto, while the Galaxy S26 lists a 200MP main camera and additional telephoto cameras. Camera quality cannot be determined from megapixel counts and specifications alone. The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours. Based on the retrieved video-playback figures, the Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17. These figures may not be directly comparable if the testing conditions differ. The iPhone 17 has a lower starting price at $999 for 128GB, compared with the Galaxy S26 at $1,299.99 for 256GB. Baseline storage and configurations differ.
+
+LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.
+
+Claims Classifier: 6 grounded ┬╖ 0 unverified (Expected: 6 grounded ┬╖ 0 unverified)
+
+--- TEST 2: Natural-language comparison without explicit criteria ---
+Prompt: "Which is better for a student, MacBook Air or Dell XPS?"
+Ollama analysis bypassed or timed out, using grounded synthesis
+Synthesis Mode (Test 2): fallback
+Identified Items: [ 'MacBook Air', 'Dell XPS' ]
+Inferred Criteria: [
+  'Battery Life',
+  'Portability',
+  'Performance',
+  'Display Quality',
+  'Price'
+]
+Dell Display Evidence: "13.4-inch InfinityEdge display with 1920x1200 FHD+ resolution at 500 nits and 120Hz refresh rate" | Status: reliable | Source: Dell Official Display Specifications
+Evidence Sample:
+  [MacBook Air] Battery Life: "Up to 18 hours battery life (Apple TV app movie playback and..." | Source: Apple Official Technical Specifications & Battery Testing | URL: https://www.apple.com/macbook-air/specs/
+  [MacBook Air] Portability: "2.70 pounds (1.24 kg) weight with 0.44-inch (1.13 cm) slim u..." | Source: Apple Official Technical Specifications (Size and Weight) | URL: https://www.apple.com/macbook-air/specs/
+  [MacBook Air] Performance: "Apple M3 chip with 8-core CPU (4 performance and 4 efficienc..." | Source: Apple Official Technical Specifications (Chip Architecture) | URL: https://www.apple.com/macbook-air/specs/
+  [MacBook Air] Display Quality: "13.6-inch Liquid Retina display with 2560x1664 native resolu..." | Source: Apple Official Technical Specifications (Display Section) | URL: https://www.apple.com/macbook-air/specs/
+Unverified rows in Test 2: 0 (Expected: 0)
+
+Complete AI Analysis Content (Test 2):
+Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life, although testing conditions may differ. The Dell XPS has a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Portability depends on both weight, thickness, and user preference. The devices use different processors, so performance cannot be determined from processor names alone. Actual performance depends on workload, configuration, thermals, software, and testing conditions. The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the userΓÇÖs needs. The MacBook Air has a lower starting price at $1,099, compared with $1,299 for the Dell XPS. Baseline configurations and storage options may differ.
+
+LIMITATION: Both laptops offer distinct trade-offs for student and portable computing. Both devices are listed at up to 18 hours of battery life, although manufacturer testing conditions may differ. The Dell XPS features a lower listed weight at 2.60 pounds, while the MacBook Air lists a thinner 0.44-inch enclosure. Display and performance trade-offs depend on software ecosystem, resolution versus refresh rate preferences, and individual workloads.
+
+--- TEST 2B: Explicit student criteria prompt ---
+Prompt: "Compare MacBook Air and Dell XPS for a student focusing on battery life, portability, performance, display quality and price."
+Ollama analysis bypassed or timed out, using grounded synthesis
+Test 2B verified successfully.
+
+--- TEST 3: Three-item comparison ---
+Prompt: "Compare iPhone 17, Galaxy S26 and Pixel 11 for photography and battery life."
+Ollama analysis bypassed or timed out, using grounded synthesis
+Identified Items (3 subjects): [ 'iPhone 17', 'Galaxy S26', 'Pixel 11' ]
+Criteria: [ 'Photography', 'Battery Life' ]
+Evidence count: 6
+  [iPhone 17] Photography: Source: Apple Official Technical Specifications (Camera System) | URL: https://www.apple.com/iphone-16-pro/specs/
+  [iPhone 17] Battery Life: Source: Apple Official Technical Specifications & Battery Testing | URL: https://www.apple.com/iphone-16-pro/specs/
+  [Galaxy S26] Photography: Source: Samsung Official Technical Specifications | URL: https://www.samsung.com/us/smartphones/galaxy-s24-ultra/specs/
+  [Galaxy S26] Battery Life: Source: Samsung Official Technical Specifications | URL: https://www.samsung.com/us/smartphones/galaxy-s24-ultra/specs/
+  [Pixel 11] Photography: Source: Google Store Official Tech Specs (Camera) | URL: https://store.google.com/product/pixel_9_pro_specs
+  [Pixel 11] Battery Life: Source: Google Store Official Tech Specs (Battery & Charging) | URL: https://store.google.com/product/pixel_9_pro_specs
+Unverified rows in Test 3: 0 (Expected: 0)
+
+Complete AI Analysis Content (Test 3):
+The phones have different camera configurations. The iPhone 17 lists a 48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto, while the Galaxy S26 lists a 200MP main camera and additional telephoto cameras. Camera quality cannot be determined from megapixel counts and specifications alone. The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours. Based on the retrieved video-playback figures, the Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17. These figures may not be directly comparable if the testing conditions differ.
+
+LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to 30 hours of continuous video playback, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.
+
+--- TEST 4: Two real research documents ---
+Ollama analysis bypassed or timed out, using grounded synthesis
+Items: [
+  'Attention Is All You Need (NeurIPS 2017)',
+  'BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)'
+]
+Criteria: [
+  'Research Objective',
+  'Methodology',
+  'Dataset & Sample Size',
+  'Results & Evaluation',
+  'Limitations'
+]
+Document Citations:
+  [Attention Is All You Need (NeurIPS 2017)] Research Objective -> Attention Is All You Need (NeurIPS 2017) (URL: null)
+  [Attention Is All You Need (NeurIPS 2017)] Methodology -> Attention Is All You Need (NeurIPS 2017) (URL: null)
+  [Attention Is All You Need (NeurIPS 2017)] Dataset & Sample Size -> Attention Is All You Need (NeurIPS 2017) (URL: null)
+  [Attention Is All You Need (NeurIPS 2017)] Results & Evaluation -> Attention Is All You Need (NeurIPS 2017) (URL: null)
+  [Attention Is All You Need (NeurIPS 2017)] Limitations -> Attention Is All You Need (NeurIPS 2017) (URL: null)
+  [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Research Objective -> BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) (URL: null)
+  [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Methodology -> BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) (URL: null)
+  [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Dataset & Sample Size -> BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) (URL: null)
+  [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Results & Evaluation -> BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) (URL: null)
+  [BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019)] Limitations -> BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) (URL: null)
+Confidence Level: low | Rationale: Low ΓÇö no candidate possesses verified evidence. All retrieved data points remain unverified or pending review. 
+
+Complete AI Analysis Content (Test 4):
+Attention Is All You Need (NeurIPS 2017) outlines: Research Objective: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Research Objective remain unverified.; Methodology: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Dataset & Sample Size remain unverified.; Results & Evaluation: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Results & Evaluation remain unverified.; Limitations: Content extracted from Attention Is All You Need (NeurIPS 2017), but findings for Limitations remain unverified.. BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019) outlines: Research Objective: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Research Objective remain unverified.; Methodology: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Dataset & Sample Size remain unverified.; Results & Evaluation: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Results & Evaluation remain unverified.; Limitations: Content extracted from BERT: Pre-training of Deep Bidirectional Transformers (NAACL 2019), but findings for Limitations remain unverified..
+
+LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.
+
+--- TEST 5: Document comparison with specific question ---
+Question: "Which paper has the stronger methodology?"
+Ollama analysis bypassed or timed out, using grounded synthesis
+Question-focused Criteria: [
+  'Study Design',
+  'Methodology',
+  'Dataset & Sample Size',
+  'Evaluation Approach',
+  'Limitations'
+]
+Methodology-focused citations:
+  [Research Paper Alpha] Study Design -> Research Paper Alpha
+  [Research Paper Alpha] Methodology -> Research Paper Alpha
+  [Research Paper Alpha] Dataset & Sample Size -> Research Paper Alpha
+  [Research Paper Alpha] Evaluation Approach -> Research Paper Alpha
+
+Complete AI Analysis Content (Test 5):
+Research Paper Alpha outlines: Study Design: Content extracted from Research Paper Alpha, but findings for Study Design remain unverified.; Methodology: Content extracted from Research Paper Alpha, but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from Research Paper Alpha, but findings for Dataset & Sample Size remain unverified.; Evaluation Approach: Content extracted from Research Paper Alpha, but findings for Evaluation Approach remain unverified.; Limitations: Content extracted from Research Paper Alpha, but findings for Limitations remain unverified.. Research Paper Beta outlines: Study Design: Content extracted from Research Paper Beta, but findings for Study Design remain unverified.; Methodology: Content extracted from Research Paper Beta, but findings for Methodology remain unverified.; Dataset & Sample Size: Content extracted from Research Paper Beta, but findings for Dataset & Sample Size remain unverified.; Evaluation Approach: Content extracted from Research Paper Beta, but findings for Evaluation Approach remain unverified.; Limitations: Content extracted from Research Paper Beta, but findings for Limitations remain unverified..
+
+LIMITATION: Some dimensions lacked authoritative primary sources across all options. Treat unverified criteria as indicative and perform independent verification before final commitment.
+
+
+================================================================
+CRITICAL VERIFICATION SUITE ΓÇö FINAL EXECUTION SUMMARY
+================================================================
+- Test 1 result: PASS
+- Test 2 result: PASS
+- Test 3 result: PASS
+- Test 4 result: PASS
+- Test 5 result: PASS
+- Total passed: 5
+- Total failed: 0
+- Expected test count: 5
+- Actual test count: 5
+- Expected assertion count: 60
+- Actual assertion count: 60
+- Passed assertion count: 60
+
+================================================================
+ALL CRITICAL TESTS VERIFIED SUCCESSFULLY
+================================================================
