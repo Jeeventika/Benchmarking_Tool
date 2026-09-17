@@ -10,7 +10,12 @@
 // Exits with code 1 on the first failure, printing FAIL with expected/actual.
 // ============================================================================
 
-import { checkNarrativeConsistency } from './src/services/narrativeConsistencyService.js'
+import {
+  checkNarrativeConsistency,
+  getMeasurementsForItem,
+  extractMeasurementsWithContext,
+  detectCameraComponent,
+} from './src/services/narrativeConsistencyService.js'
 
 let passed = 0
 let failed = 0
@@ -382,6 +387,156 @@ if (bug2TeleContradiction.conflicts.length > 0) {
 } else {
   console.error('  ASSERT FAIL: BUG 2 — no conflicts array to inspect')
   failed++
+}
+
+// ============================================================================
+// DEDICATED REGRESSION SUITE: REVIEWER ISSUE 1 — Battery Association
+//
+// Test this exact single sentence:
+// "Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours."
+//
+// Verify that:
+// - Galaxy S26 is associated with 30 hours.
+// - iPhone 17 is associated with 27 hours.
+// - The checker does not attribute both values to Galaxy S26.
+// - No false warning is produced.
+// ============================================================================
+console.log('\n--- DEDICATED REGRESSION: REVIEWER ISSUE 1 — Battery Association ---')
+const issue1Sentence = 'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.'
+const issue1Items = ['Galaxy S26', 'iPhone 17']
+const issue1Evidence = [
+  { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+  { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+]
+
+// 1. Verify Galaxy S26 is associated with 30 hours
+const s26Assoc = getMeasurementsForItem(issue1Sentence, 'Galaxy S26', issue1Items)
+assertEqual('Reviewer Issue 1: Galaxy S26 has exactly 1 measurement associated', 1, s26Assoc.length)
+assertEqual('Reviewer Issue 1: Galaxy S26 is associated with 30 hours', 30, s26Assoc[0]?.value)
+assertEqual('Reviewer Issue 1: Galaxy S26 unit is hours', 'hours', s26Assoc[0]?.canonicalUnit)
+
+// 2. Verify iPhone 17 is associated with 27 hours
+const iphoneAssoc = getMeasurementsForItem(issue1Sentence, 'iPhone 17', issue1Items)
+assertEqual('Reviewer Issue 1: iPhone 17 has exactly 1 measurement associated', 1, iphoneAssoc.length)
+assertEqual('Reviewer Issue 1: iPhone 17 is associated with 27 hours', 27, iphoneAssoc[0]?.value)
+assertEqual('Reviewer Issue 1: iPhone 17 unit is hours', 'hours', iphoneAssoc[0]?.canonicalUnit)
+
+// 3. Verify the checker does not attribute both values to Galaxy S26
+assertEqual(
+  'Reviewer Issue 1: Checker does not attribute both values to Galaxy S26 (27h not in S26 measurements)',
+  false,
+  s26Assoc.some((m) => m.value === 27)
+)
+assertEqual(
+  'Reviewer Issue 1: Galaxy S26 count is strictly 1 (not 2)',
+  true,
+  s26Assoc.length === 1 && !s26Assoc.some((m) => m.value === 27)
+)
+
+// 4. Verify no false warning is produced
+const issue1Result = checkNarrativeConsistency(issue1Sentence, issue1Evidence)
+assertEqual('Reviewer Issue 1: No false warning produced (hasConflict is false)', false, issue1Result.hasConflict)
+assertEqual('Reviewer Issue 1: No false warning produced (conflicts count is 0)', 0, issue1Result.conflicts.length)
+if (!issue1Result.hasConflict && issue1Result.conflicts.length === 0) {
+  passed++
+}
+
+// ============================================================================
+// DEDICATED REGRESSION SUITE: REVIEWER ISSUE 2 — Camera Component Association
+//
+// Test this exact evidence:
+// "iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera."
+//
+// Verify that:
+// - Main camera = 48MP.
+// - Ultra Wide camera = 48MP.
+// - Telephoto camera = 12MP.
+// - The checker does not compare the 12MP telephoto value against only the first 48MP value.
+// - Accurate narrative repeating these values is not flagged.
+// ============================================================================
+console.log('\n--- DEDICATED REGRESSION: REVIEWER ISSUE 2 — Camera Component Association ---')
+const issue2EvidenceText = 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera.'
+const issue2EvidenceRows = [
+  { item_name: 'iPhone 17', criterion: 'Camera', result: issue2EvidenceText },
+]
+
+// 1. Verify component extraction from exact evidence
+const camExtracted = extractMeasurementsWithContext(issue2EvidenceText)
+assertEqual('Reviewer Issue 2: Extracted 3 camera measurements', 3, camExtracted.length)
+
+// Main camera = 48MP
+const mainCam = camExtracted.find((m) => m.component === 'main')
+assertEqual('Reviewer Issue 2: Main camera component detected', true, Boolean(mainCam))
+assertEqual('Reviewer Issue 2: Main camera = 48MP', 48, mainCam?.value)
+assertEqual('Reviewer Issue 2: Main camera unit = mp', 'mp', mainCam?.canonicalUnit)
+
+// Ultra Wide camera = 48MP
+const uwCam = camExtracted.find((m) => m.component === 'ultra_wide')
+assertEqual('Reviewer Issue 2: Ultra Wide camera component detected', true, Boolean(uwCam))
+assertEqual('Reviewer Issue 2: Ultra Wide camera = 48MP', 48, uwCam?.value)
+assertEqual('Reviewer Issue 2: Ultra Wide camera unit = mp', 'mp', uwCam?.canonicalUnit)
+
+// Telephoto camera = 12MP
+const teleCam = camExtracted.find((m) => m.component === 'telephoto')
+assertEqual('Reviewer Issue 2: Telephoto camera component detected', true, Boolean(teleCam))
+assertEqual('Reviewer Issue 2: Telephoto camera = 12MP', 12, teleCam?.value)
+assertEqual('Reviewer Issue 2: Telephoto camera unit = mp', 'mp', teleCam?.canonicalUnit)
+
+// 2. Verify the checker does not compare the 12MP telephoto value against only the first 48MP value
+// (a) Telephoto alone: 12MP telephoto narrative must match telephoto evidence, NOT be compared against 48MP main
+const teleNarrativeResult = checkNarrativeConsistency(
+  'The iPhone 17 includes a 12MP telephoto camera.',
+  issue2EvidenceRows
+)
+assertEqual(
+  'Reviewer Issue 2: Checker does not compare 12MP telephoto against first 48MP value (no false warning)',
+  false,
+  teleNarrativeResult.hasConflict
+)
+assertEqual(
+  'Reviewer Issue 2: 12MP telephoto alone produces 0 conflicts',
+  0,
+  teleNarrativeResult.conflicts.length
+)
+
+// (b) Telephoto contradiction: narrative says 10MP telephoto camera
+// It must compare against 12MP (the telephoto evidence), NOT 48MP (the first measurement)
+const teleContradictResult = checkNarrativeConsistency(
+  'The iPhone 17 includes a 10MP telephoto camera.',
+  issue2EvidenceRows
+)
+assertEqual('Reviewer Issue 2: Contradictory 10MP telephoto flags a conflict', true, teleContradictResult.hasConflict)
+if (teleContradictResult.conflicts.length > 0) {
+  assertEqual(
+    'Reviewer Issue 2: Telephoto contradiction compared against 12MP telephoto evidence (NOT 48MP)',
+    12,
+    teleContradictResult.conflicts[0].evidence_value
+  )
+  assertEqual(
+    'Reviewer Issue 2: Telephoto contradiction narrative_value is 10',
+    10,
+    teleContradictResult.conflicts[0].narrative_value
+  )
+} else {
+  console.error('  ASSERT FAIL: Reviewer Issue 2 — telephoto contradiction not flagged')
+  failed++
+}
+
+// 3. Verify accurate narrative repeating these values is not flagged
+const exactRepeatingNarrative = 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera.'
+const repeatResult = checkNarrativeConsistency(exactRepeatingNarrative, issue2EvidenceRows)
+assertEqual(
+  'Reviewer Issue 2: Accurate narrative repeating values is not flagged (hasConflict is false)',
+  false,
+  repeatResult.hasConflict
+)
+assertEqual(
+  'Reviewer Issue 2: Accurate narrative repeating values produces 0 conflicts',
+  0,
+  repeatResult.conflicts.length
+)
+if (!repeatResult.hasConflict && repeatResult.conflicts.length === 0) {
+  passed++
 }
 
 // ============================================================================

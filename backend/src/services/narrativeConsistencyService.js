@@ -95,7 +95,7 @@ const MEASUREMENT_UNIT_PATTERN =
  * @param {string} text
  * @returns {string|null}
  */
-function detectCameraComponent(text) {
+export function detectCameraComponent(text) {
   if (!text || typeof text !== 'string') return null
   const lower = text.toLowerCase()
   // Check ultra-wide first so 'wide' doesn't greedily capture 'ultra wide'
@@ -146,6 +146,8 @@ function splitIntoSentences(text) {
  * @returns {string}  Sentence with model-name digit occurrences masked
  */
 function stripModelNumbers(sentence, itemName) {
+  if (!sentence || typeof sentence !== 'string') return ''
+  if (!itemName || typeof itemName !== 'string') return sentence
   const itemLower = itemName.toLowerCase()
   const tokenRe = /([a-z]+)(\d+)/g
   let result = sentence
@@ -154,8 +156,8 @@ function stripModelNumbers(sentence, itemName) {
     const letterPrefix = m[1]
     const digits = m[2]
     if (!letterPrefix || letterPrefix.length === 0) continue
-    const re = new RegExp(`(?<=[a-z]*)${letterPrefix}${digits}(?!\\d)`, 'g')
-    result = result.replace(re, letterPrefix + ' '.repeat(digits.length))
+    const re = new RegExp(`(?<=[a-z]*)${letterPrefix}${digits}(?!\\d)`, 'gi')
+    result = result.replace(re, (match) => match.slice(0, letterPrefix.length) + ' '.repeat(digits.length))
   }
   return result
 }
@@ -167,7 +169,7 @@ function stripModelNumbers(sentence, itemName) {
  * @param {string} text
  * @returns {Array<{ value: number, canonicalUnit: string, component: string|null, startIndex: number, endIndex: number, phrase: string }>}
  */
-function extractMeasurementsWithContext(text) {
+export function extractMeasurementsWithContext(text) {
   const results = []
   const re = new RegExp(MEASUREMENT_UNIT_PATTERN.source, 'gi')
   let m
@@ -232,12 +234,17 @@ function extractMeasurementFromEvidence(result) {
  * @param {string[]} allItemNames
  * @returns {Array<{ value: number, canonicalUnit: string, component: string|null, startIndex: number, endIndex: number, phrase: string }>}
  */
-function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
+export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
+  if (!sentence || typeof sentence !== 'string') return []
+  if (!targetItemName || typeof targetItemName !== 'string') return []
+  if (!Array.isArray(allItemNames) || allItemNames.length === 0) return []
+
   const targetLower = targetItemName.toLowerCase()
-  if (!sentence.includes(targetLower)) return []
+  const sentLower = sentence.toLowerCase()
+  if (!sentLower.includes(targetLower)) return []
 
   // Clean model numbers for all known items so model tokens (e.g. s26) do not interfere
-  let cleaned = sentence
+  let cleaned = sentLower
   for (const item of allItemNames) {
     cleaned = stripModelNumbers(cleaned, item)
   }
@@ -247,7 +254,7 @@ function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
 
   const otherItems = allItemNames
     .map((n) => n.toLowerCase())
-    .filter((n) => n !== targetLower && sentence.includes(n))
+    .filter((n) => n !== targetLower && sentLower.includes(n))
 
   // If no other products appear in the sentence, all measurements belong to the target
   if (otherItems.length === 0) {
@@ -267,7 +274,7 @@ function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
 
   for (const item of sortedItems) {
     let idx = 0
-    while ((idx = sentence.indexOf(item.name, idx)) !== -1) {
+    while ((idx = sentLower.indexOf(item.name, idx)) !== -1) {
       const start = idx
       const end = idx + item.name.length
       idx = end
@@ -290,7 +297,7 @@ function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
   itemMentions.sort((a, b) => a.start - b.start)
 
   // Support "respectively" syntactic binding: item A and B offer X and Y respectively
-  if (sentence.includes('respectively') && itemMentions.length === measurements.length) {
+  if (sentLower.includes('respectively') && itemMentions.length === measurements.length) {
     const targetIdx = itemMentions.findIndex((it) => it.isTarget)
     if (targetIdx !== -1 && measurements[targetIdx]) {
       return [measurements[targetIdx]]
@@ -311,7 +318,7 @@ function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
 
     // Check preceding item if not separated by a contrastive clause boundary
     if (precedingItem) {
-      const between = sentence.slice(precedingItem.end, m.startIndex)
+      const between = sentLower.slice(precedingItem.end, m.startIndex)
       const hasContrastiveSplit = /[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(between)
       if (!hasContrastiveSplit) {
         return precedingItem.isTarget

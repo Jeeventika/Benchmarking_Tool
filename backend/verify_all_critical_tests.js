@@ -80,6 +80,72 @@ async function inspectComp(comparisonId) {
   }
 }
 
+/**
+ * Checks if the content explicitly attributes 200MP to iPhone, or claims iPhone has higher/more megapixels than Galaxy.
+ * Uses clause-level and sentence-bounded matching to prevent cross-product attribution false positives.
+ */
+function checkIPhoneHigherMegapixelClaim(content) {
+  if (!content || typeof content !== 'string') return false
+
+  const sentences = content
+    .split(/(?<=[.?!])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  for (const sentence of sentences) {
+    // 1. Direct comparison in a single sentence: iPhone described as having higher/more/greater megapixels than Galaxy
+    if (
+      /(?:iphone|apple)(?:(?!(?:galaxy|samsung)).)*?(?:higher|more|greater)\s+(?:megapixels?|mp\b)[^.?!]*?(?:than|compared\s+to)\s+(?:the\s+)?(?:galaxy|samsung)/i.test(
+        sentence
+      )
+    ) {
+      return true
+    }
+
+    // 2. Clause-level isolation
+    const clauses = sentence
+      .split(
+        /[,;]|\s+(?:while|whereas|but|although|compared\s+to|versus|vs\.?)\s+|\s+and\s+(?=(?:the\s+)?(?:galaxy|samsung|iphone|apple)\b)/i
+      )
+      .map((c) => c.trim())
+      .filter(Boolean)
+
+    for (const clause of clauses) {
+      const mentionsIPhone = /(?:iphone|apple)/i.test(clause)
+      const mentionsGalaxy = /(?:galaxy|samsung)/i.test(clause)
+
+      // iPhone mentioned, Galaxy NOT mentioned in this clause
+      if (mentionsIPhone && !mentionsGalaxy) {
+        // iPhone explicitly associated with 200MP
+        if (/\b200\s*mp\b/i.test(clause)) {
+          return true
+        }
+        // iPhone explicitly described as having higher/more megapixels
+        if (/(?:higher|more|greater)\s+(?:megapixels?|mp\b)/i.test(clause)) {
+          return true
+        }
+      }
+
+      // If both mentioned in the same clause (e.g. without clause delimiters)
+      if (mentionsIPhone && mentionsGalaxy) {
+        // iPhone explicitly associated with 200MP without Galaxy intervening
+        if (
+          /(?:iphone|apple)(?:(?!(?:galaxy|samsung)).)*?\b200\s*mp\b/i.test(clause) &&
+          !/\b200\s*mp\b[^,;.?!]*?(?:for|in|on|from|by)?\s*(?:the\s+)?(?:galaxy|samsung)/i.test(clause)
+        ) {
+          return true
+        }
+        // iPhone explicitly described as having higher/more megapixels without Galaxy intervening
+        if (/(?:iphone|apple)(?:(?!(?:galaxy|samsung)).)*?(?:higher|more|greater)\s+(?:megapixels?|mp\b)/i.test(clause)) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
 async function run() {
   console.log('================================================================');
   console.log('CRITICAL VERIFICATION SUITE — CODE FREEZE TEST SUITE');
@@ -130,7 +196,7 @@ async function run() {
   if (!res1.analysis.content.includes(expectedThingsToConsider)) {
     throw new Error('TEST 1 FAILED: Analysis missing corrected Things to consider / LIMITATION wording')
   }
-  if (/(?:iphone|apple).*(?:higher|more|greater).*(?:megapixel|mp\b)/i.test(res1.analysis.content)) {
+  if (checkIPhoneHigherMegapixelClaim(res1.analysis.content)) {
     throw new Error('TEST 1 FAILED: Analysis claims iPhone has a higher megapixel count')
   }
 

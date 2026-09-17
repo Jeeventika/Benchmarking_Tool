@@ -209,6 +209,42 @@ const CASES = [
     expectConflict: true,
     expectNarrativeValue: 10,
   },
+  {
+    name: 'Reviewer Issue 1: Battery association single sentence (Galaxy 30h, iPhone 27h) — no conflict',
+    analysis: 'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.',
+    evidence: [
+      { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+      { item_name: 'iPhone 17',  criterion: 'Battery Life', result: '27 hours' },
+    ],
+    expectConflict: false,
+    expectNarrativeValue: null,
+  },
+  {
+    name: 'Reviewer Issue 2: Camera exact evidence repeated accurately — no conflict',
+    analysis: 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera.',
+    evidence: [
+      {
+        item_name: 'iPhone 17',
+        criterion: 'Camera',
+        result: 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera.',
+      },
+    ],
+    expectConflict: false,
+    expectNarrativeValue: null,
+  },
+  {
+    name: 'Reviewer Issue 2: Camera telephoto 12MP alone not compared against first 48MP value — no conflict',
+    analysis: 'The iPhone 17 includes a 12MP telephoto camera.',
+    evidence: [
+      {
+        item_name: 'iPhone 17',
+        criterion: 'Camera',
+        result: 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera.',
+      },
+    ],
+    expectConflict: false,
+    expectNarrativeValue: null,
+  },
 ]
 
 const SOURCE_TO_SOURCE_CASES = [
