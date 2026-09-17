@@ -26,6 +26,7 @@ import {
   IPHONE_GALAXY_THINGS_TO_CONSIDER,
   MACBOOK_DELL_THINGS_TO_CONSIDER,
 } from './src/services/analysisGenerationHelper.js'
+import { classifyClaims } from './src/services/claimsClassifierService.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -856,6 +857,98 @@ assert(
   'Sanitized laptop analysis has NO narrative conflicts',
   false,
   checkNarrativeConsistency(sanitizedLaptop, laptopEvidence).hasConflict
+)
+passed++
+
+// ══════════════════════════════════════════════════════════════════
+// AI-GENERATED ANALYSIS: MISSING-OTHER-ITEM BATTERY ATTRIBUTION (TASK 3)
+// ══════════════════════════════════════════════════════════════════
+console.log('\n══════════════════════════════════════════════════════════════════')
+console.log('AI-GENERATED ANALYSIS: MISSING-OTHER-ITEM BATTERY ATTRIBUTION')
+console.log('══════════════════════════════════════════════════════════════════\n')
+
+const missingPhoneComp = { criteria: ['Battery Life', 'Camera'] }
+const missingPhoneItems = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+const missingPhoneEvidence = [
+  { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours', evidence_status: 'reliable' },
+  { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide main camera', evidence_status: 'reliable' },
+  { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto', evidence_status: 'reliable' },
+]
+
+// 1. Grounded synthesis handles missing iPhone battery evidence safely
+const missingSynth = generateGroundedAnalysisSynthesis(missingPhoneComp, missingPhoneItems, missingPhoneEvidence, [])
+
+assert(
+  'Missing iPhone evidence: Grounded synthesis explicitly states Galaxy 30h and missing iPhone evidence',
+  true,
+  missingSynth.includes('Galaxy S26 battery life is listed as up to 30 hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.')
+)
+passed++
+
+assert(
+  'Missing iPhone evidence: Grounded synthesis does NOT generate incorrect sentence',
+  false,
+  missingSynth.includes('Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours')
+)
+passed++
+
+assert(
+  'Missing iPhone evidence: Grounded synthesis does NOT claim Galaxy S26 has 27 hours',
+  false,
+  /Galaxy S26.*27\s*hours/i.test(missingSynth)
+)
+passed++
+
+assert(
+  'Missing iPhone evidence: Grounded synthesis has NO narrative conflict',
+  false,
+  checkNarrativeConsistency(missingSynth, missingPhoneEvidence, missingPhoneItems).hasConflict
+)
+passed++
+
+// 2. Sanitizer intercepts incorrect sentence when iPhone battery evidence is missing
+const badComparisonText = `Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.
+Camera quality cannot be determined from megapixel counts and specifications alone.
+LIMITATION: Both devices have different configurations.`
+
+const sanitizedMissing = validateAndSanitizeAnalysis(
+  badComparisonText,
+  missingPhoneComp,
+  missingPhoneItems,
+  missingPhoneEvidence,
+  []
+)
+
+assert(
+  'Missing iPhone evidence: Sanitizer eliminates incorrect comparison sentence',
+  false,
+  sanitizedMissing.includes('Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours')
+)
+passed++
+
+assert(
+  'Missing iPhone evidence: Sanitizer injects safe verified statement',
+  true,
+  sanitizedMissing.includes('Galaxy S26 battery life is listed as up to 30 hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.')
+)
+passed++
+
+assert(
+  'Missing iPhone evidence: Sanitized text has NO narrative conflict',
+  false,
+  checkNarrativeConsistency(sanitizedMissing, missingPhoneEvidence, missingPhoneItems).hasConflict
+)
+passed++
+
+// 3. Claims classifier flags unsupported battery comparison as unverified
+const unverifiedClaims = classifyClaims(badComparisonText, missingPhoneItems, missingPhoneEvidence)
+const iphoneUnverifiedClaim = unverifiedClaims.find(
+  (c) => c.item_name === 'iPhone 17' && c.criterion === 'Battery Life' && c.status === 'potentially_unverified'
+)
+assert(
+  'Missing iPhone evidence: Claims classifier flags unsupported iPhone battery claim as unverified',
+  true,
+  Boolean(iphoneUnverifiedClaim)
 )
 passed++
 

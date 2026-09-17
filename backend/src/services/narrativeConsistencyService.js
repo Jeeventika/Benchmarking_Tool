@@ -223,6 +223,47 @@ function extractMeasurementFromEvidence(result) {
   return measurements.length > 0 ? measurements[0] : null
 }
 
+const NON_MODEL_WORDS = new Set([
+  'battery', 'camera', 'display', 'price', 'screen', 'specs', 'weight',
+  'hours', 'life', 'offers', 'provides', 'lists', 'has', 'is', 'for',
+  'with', 'and', 'while', 'whereas', 'at', 'in', 'on', 'reports',
+  'continuous', 'video', 'playback', 'starting', 'msrp', 'baseline',
+  'capacity', 'resolution', 'chassis', 'enclosure', 'unibody'
+])
+
+/**
+ * Discovers potential product and entity names mentioned in a given text string,
+ * incorporating both explicit known item names and recognized brand/model patterns.
+ *
+ * @param {string} text
+ * @param {Array<string|{name: string}>} existingNames
+ * @returns {string[]}
+ */
+export function discoverEntitiesInText(text, existingNames = []) {
+  if (!text || typeof text !== 'string') return (existingNames || []).map((n) => (typeof n === 'string' ? n : n?.name)).filter(Boolean)
+  const discovered = new Set(
+    (existingNames || [])
+      .map((n) => (typeof n === 'string' ? n.toLowerCase() : n?.name?.toLowerCase()))
+      .filter(Boolean)
+  )
+  const result = [...(existingNames || [])]
+    .map((n) => (typeof n === 'string' ? n : n?.name))
+    .filter(Boolean)
+
+  const brandPattern = /\b(iPhone|Galaxy|Pixel|MacBook|Dell|ThinkPad|iPad|Surface)\s+([A-Za-z0-9]+(?:\s+(?:Pro(?:\s+Max)?|Ultra|Plus|Max|Air|Mini|FE|Fold|Flip|XPS|\d+))?)\b/gi
+  let m
+  while ((m = brandPattern.exec(text)) !== null) {
+    const raw = m[0].trim()
+    const lower = raw.toLowerCase()
+    if (!discovered.has(lower)) {
+      discovered.add(lower)
+      result.push(raw)
+    }
+  }
+
+  return result
+}
+
 /**
  * Determine which measurements in a sentence belong to a specific target item.
  * Accurately handles same-sentence multi-product comparisons by attributing
@@ -237,36 +278,59 @@ function extractMeasurementFromEvidence(result) {
 export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
   if (!sentence || typeof sentence !== 'string') return []
   if (!targetItemName || typeof targetItemName !== 'string') return []
-  if (!Array.isArray(allItemNames) || allItemNames.length === 0) return []
 
   const targetLower = targetItemName.toLowerCase()
   const sentLower = sentence.toLowerCase()
   if (!sentLower.includes(targetLower)) return []
 
+  // Ensure allItemNames includes targetItemName and any discovered entities in this sentence
+  const passedItems = Array.isArray(allItemNames) && allItemNames.length > 0 ? allItemNames : [targetItemName]
+  const itemsInSentence = discoverEntitiesInText(sentence, passedItems)
+
   // Clean model numbers for all known items so model tokens (e.g. s26) do not interfere
   let cleaned = sentLower
-  for (const item of allItemNames) {
+  for (const item of itemsInSentence) {
     cleaned = stripModelNumbers(cleaned, item)
   }
 
   const measurements = extractMeasurementsWithContext(cleaned)
   if (measurements.length === 0) return []
 
-  const otherItems = allItemNames
-    .map((n) => n.toLowerCase())
-    .filter((n) => n !== targetLower && sentLower.includes(n))
+  const otherItems = itemsInSentence
+    .map((n) => (typeof n === 'string' ? n.toLowerCase() : n?.name?.toLowerCase()))
+    .filter((n) => n && n !== targetLower && sentLower.includes(n))
 
-  // If no other products appear in the sentence, all measurements belong to the target
+  // If no other products appear in the sentence, ensure measurements in disconnected
+  // contrastive clauses (e.g. ", while ... 27 hours") are NOT falsely attributed to target
   if (otherItems.length === 0) {
-    return measurements
+    const targetIdx = sentLower.indexOf(targetLower)
+    const targetEnd = targetIdx + targetLower.length
+
+    return measurements.filter((m) => {
+      if (targetEnd <= m.startIndex) {
+        const textBetween = sentLower.slice(targetEnd, m.startIndex)
+        if (/[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(textBetween)) {
+          return false
+        }
+      } else if (targetIdx >= m.endIndex) {
+        const textBetween = sentLower.slice(m.endIndex, targetIdx)
+        if (/[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(textBetween)) {
+          return false
+        }
+      }
+      return true
+    })
   }
 
   // Sort items descending by length so longer names take precedence
-  const sortedItems = [...allItemNames]
-    .map((name) => ({
-      name: name.toLowerCase(),
-      isTarget: name.toLowerCase() === targetLower,
-    }))
+  const sortedItems = [...itemsInSentence]
+    .map((name) => {
+      const n = typeof name === 'string' ? name : name?.name
+      return {
+        name: n.toLowerCase(),
+        isTarget: n.toLowerCase() === targetLower,
+      }
+    })
     .sort((a, b) => b.name.length - a.name.length)
 
   const matchedSpans = []
@@ -323,11 +387,18 @@ export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
       if (!hasContrastiveSplit) {
         return precedingItem.isTarget
       }
+      if (followingItem && followingItem.start <= m.startIndex) {
+        return followingItem.isTarget
+      }
     }
 
     // Check following item when preceding item was separated by a contrastive boundary
     if (followingItem) {
-      return followingItem.isTarget
+      const between = sentLower.slice(m.endIndex, followingItem.start)
+      const hasContrastiveSplit = /[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(between)
+      if (!hasContrastiveSplit) {
+        return followingItem.isTarget
+      }
     }
 
     // Proximity fallback: nearest item mention
@@ -367,9 +438,10 @@ export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
  * @param {string} analysisText  Full text of the generated analysis
  * @param {Array}  evidenceRows  Array of evidence row objects, each with:
  *                                 { item_name, criterion, result, ... }
+ * @param {Array<string|{name: string}>} [knownItemNames]  Optional list of known comparison items
  * @returns {{ hasConflict: boolean, conflicts: Array }}
  */
-export function checkNarrativeConsistency(analysisText, evidenceRows) {
+export function checkNarrativeConsistency(analysisText, evidenceRows, knownItemNames = []) {
   // Guard: if either input is missing, there is nothing to compare
   if (!analysisText || typeof analysisText !== 'string' || analysisText.trim().length === 0) {
     return { hasConflict: false, conflicts: [] }
@@ -378,7 +450,14 @@ export function checkNarrativeConsistency(analysisText, evidenceRows) {
     return { hasConflict: false, conflicts: [] }
   }
 
-  const allItemNames = [...new Set(evidenceRows.map((r) => r.item_name).filter(Boolean))]
+  const explicitNames = [
+    ...evidenceRows.map((r) => r.item_name),
+    ...(Array.isArray(knownItemNames)
+      ? knownItemNames.map((i) => (typeof i === 'string' ? i : i?.name))
+      : []),
+  ].filter(Boolean)
+
+  const allItemNames = discoverEntitiesInText(analysisText, [...new Set(explicitNames)])
   const sentences = splitIntoSentences(analysisText)
   const conflicts = []
 

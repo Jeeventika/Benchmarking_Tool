@@ -74,6 +74,30 @@ claims.push({
               warning: 'This claim cites institutional or external factors not documented in the recorded evidence baseline.',
             })
           }
+
+          // Check if sentence makes a specific battery measurement claim for an item lacking verified evidence on battery
+          if (/\b(?:battery|runtime|\d+\s*(?:hours?|hrs?))\b/i.test(sentence) && /\b\d+\s*(?:hours?|hrs?)\b/i.test(sentence)) {
+            const hasVerifiedBattery = evidenceRows.some(
+              (e) =>
+                (e.comparison_item_id === item.id || e.item_name === item.name) &&
+                /battery/i.test(e.criterion) &&
+                e.evidence_status === 'reliable' &&
+                !e.result.includes('Reliable source not found') &&
+                !e.result.startsWith('Extraction failed')
+            )
+            if (!hasVerifiedBattery) {
+              claims.push({
+                id: claimId++,
+                claim: sentence,
+                item_name: item.name,
+                criterion: 'Battery Life',
+                status: 'potentially_unverified',
+                source_reference: 'No matching evidence provided in recorded baseline',
+                source_url: null,
+                warning: `This claim asserts battery specifications for ${item.name} without matching verified source evidence.`,
+              })
+            }
+          }
         }
       }
 

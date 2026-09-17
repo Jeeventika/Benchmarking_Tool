@@ -540,6 +540,54 @@ if (!repeatResult.hasConflict && repeatResult.conflicts.length === 0) {
 }
 
 // ============================================================================
+// DEDICATED REGRESSION: MISSING-OTHER-ITEM BATTERY ATTRIBUTION (TASK 3)
+//
+// Input:
+// - Galaxy S26 battery evidence: 30 hours
+// - iPhone 17 battery evidence: missing
+//
+// Test sentence:
+// "Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours."
+//
+// Verify that:
+// - Galaxy S26 is associated with 30 hours.
+// - iPhone 17 is associated with 27 hours.
+// - 27 hours is NOT transferred or attributed to Galaxy S26.
+// - No false contradiction is produced for Galaxy S26 against its 30h evidence.
+// ============================================================================
+console.log('\n--- DEDICATED REGRESSION: Missing-Other-Item Battery Attribution ---')
+const missingOtherSentence = 'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.'
+const missingOtherEvidence = [
+  { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+]
+
+// 1. Verify Galaxy S26 has exactly 1 measurement (30 hours) and NOT 27 hours
+const s26MissingAssoc = getMeasurementsForItem(missingOtherSentence, 'Galaxy S26', ['Galaxy S26'])
+assertEqual('Missing-Other-Item: Galaxy S26 has exactly 1 measurement associated', 1, s26MissingAssoc.length)
+assertEqual('Missing-Other-Item: Galaxy S26 is associated with 30 hours', 30, s26MissingAssoc[0]?.value)
+assertEqual('Missing-Other-Item: Galaxy S26 unit is hours', 'hours', s26MissingAssoc[0]?.canonicalUnit)
+assertEqual(
+  'Missing-Other-Item: Checker does not attribute 27h to Galaxy S26 (27h not in S26 measurements)',
+  false,
+  s26MissingAssoc.some((m) => m.value === 27)
+)
+assertEqual('Missing-Other-Item: Galaxy S26 count is strictly 1 (no cross-item attribution)', true, s26MissingAssoc.length === 1 && s26MissingAssoc[0]?.value === 30)
+
+// 2. Verify iPhone 17 is associated with 27 hours
+const iphoneMissingAssoc = getMeasurementsForItem(missingOtherSentence, 'iPhone 17', ['Galaxy S26'])
+assertEqual('Missing-Other-Item: iPhone 17 has exactly 1 measurement associated', 1, iphoneMissingAssoc.length)
+assertEqual('Missing-Other-Item: iPhone 17 is associated with 27 hours', 27, iphoneMissingAssoc[0]?.value)
+assertEqual('Missing-Other-Item: iPhone 17 unit is hours', 'hours', iphoneMissingAssoc[0]?.canonicalUnit)
+
+// 3. Verify no false warning / contradiction is produced for Galaxy S26
+const missingOtherResult = checkNarrativeConsistency(missingOtherSentence, missingOtherEvidence)
+assertEqual('Missing-Other-Item: No false contradiction produced (hasConflict is false)', false, missingOtherResult.hasConflict)
+assertEqual('Missing-Other-Item: No false contradiction produced (conflicts count is 0)', 0, missingOtherResult.conflicts.length)
+if (!missingOtherResult.hasConflict && missingOtherResult.conflicts.length === 0) {
+  passed++
+}
+
+// ============================================================================
 // Summary
 // ============================================================================
 console.log('\n================================================================')
