@@ -137,7 +137,7 @@ ${batteryRule}
   } else if (macBookDell) {
     extraNeutralityRules = `\n5. For BATTERY: Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life. Do NOT claim one lasts longer or has better battery life. State that both are listed at up to 18 hours, although testing conditions may differ.
 6. For PORTABILITY: Dell XPS lists 2.60 pounds and 0.60 inches. MacBook Air lists 2.70 pounds and 0.44 inches. Do NOT claim MacBook Air is lighter or has higher portability, and do NOT claim Dell is lighter and thinner. State neutrally that Dell has a lower weight while MacBook Air is thinner.
-7. For DISPLAY: MacBook Air lists 2560x1664; Dell XPS lists 1920x1200 at 120Hz. Do NOT claim superior display quality or best display based on resolution or refresh rate alone.
+7. For DISPLAY: The MacBook Air lists 2560x1664 resolution, while the Dell XPS lists 1920x1200 at a 120Hz refresh rate. Explicitly state both display specifications neutrally and do NOT claim superior display quality or best display based on resolution or refresh rate alone.
 8. For PERFORMANCE: The devices use different processors (Apple M3 vs Intel Core Ultra 7). Performance cannot be determined from processor names alone; it depends on workload, thermals, and software.
 9. For PRICE: MacBook Air has a lower starting price at $1,099 for baseline 256GB SSD, compared with $1,299 for Dell XPS with baseline 512GB SSD. Note that baseline configurations differ.`
   }
@@ -735,13 +735,39 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
         /(?:macbook|dell|xps).*(?:better|superior|best)\s+display/i.test(mainText) ||
         /(?:better|superior|best)\s+display.*(?:macbook|dell|xps)/i.test(mainText)
 
-      if (displaySuperiorClaim) {
+      const macbookWronglyHas120Hz =
+        /MacBook(?:\s+Air)?[^.?!;]{0,100}?\b120\s*Hz\b/i.test(mainText)
+
+      const dellItem = items.find((i) => /dell/i.test(i.name))
+      const dellDisplayEv = evidenceRows.find(
+        (e) => (e.comparison_item_id === dellItem?.id || /dell/i.test(e.item_name)) && /display|screen/i.test(e.criterion) && isEvidenceVerified(e)
+      )
+      const omits120Hz = dellDisplayEv && /120\s*Hz/i.test(dellDisplayEv.result) && !/\b120\s*Hz\b/i.test(mainText)
+
+      if (displaySuperiorClaim || macbookWronglyHas120Hz || omits120Hz) {
         const displayNeutral =
           'The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the user’s needs.'
-        mainText = mainText.replace(
-          /[^.?!]*(?:better|superior|best)\s+display[^.?!]*[.?!]?/i,
-          displayNeutral
-        )
+
+        if (displaySuperiorClaim) {
+          mainText = mainText.replace(
+            /[^.?!]*(?:better|superior|best)\s+display[^.?!]*[.?!]?/i,
+            displayNeutral
+          )
+        } else if (macbookWronglyHas120Hz) {
+          mainText = mainText.replace(
+            /[^.?!]*MacBook[^.?!]*120\s*Hz[^.?!]*[.?!]?/gi,
+            displayNeutral
+          )
+        } else if (omits120Hz) {
+          if (/(?:display|screen|resolution|refresh)/i.test(mainText)) {
+            mainText = mainText.replace(
+              /[^.?!]*(?:display|screen|resolution|refresh)[^.?!]*[.?!]?/i,
+              displayNeutral
+            )
+          } else {
+            mainText = `${mainText.trim()} ${displayNeutral}`
+          }
+        }
       }
     }
 

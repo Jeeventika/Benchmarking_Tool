@@ -1352,6 +1352,90 @@ console.log('══════════════════════�
   passed++
 }
 
+// ══════════════════════════════════════════════════════════════════
+// SECTION 9: TEST 2 DISPLAY REFRESH RATE (120Hz) CASE A & CASE B
+// ══════════════════════════════════════════════════════════════════
+console.log('\n══════════════════════════════════════════════════════════════════')
+console.log('SECTION 9: TEST 2 DISPLAY REFRESH RATE (120Hz) CASE A & CASE B')
+console.log('══════════════════════════════════════════════════════════════════\n')
+
+// Case A: Formatting variations (120Hz, 120 Hz, 120hz, 120 hz)
+{
+  const textStandard = 'The displays differ in resolution, panel description, and refresh rate. The MacBook Air lists a higher resolution, while the Dell XPS lists a 120Hz refresh rate. Display preference depends on the user’s needs.'
+  const textSpace = 'The MacBook Air lists a higher resolution, while the Dell XPS lists a 120 Hz refresh rate. Display preference depends on user needs.'
+  const textLower = 'The MacBook Air lists a higher resolution, while the Dell XPS lists a 120hz refresh rate.'
+  const textLowerSpace = 'The MacBook Air lists a higher resolution, while the Dell XPS lists a 120 hz refresh rate.'
+
+  function check120(text) {
+    if (!text || typeof text !== 'string') return false
+    if (!/\b120\s*hz\b/i.test(text)) return false
+    const clauses = text.split(/[.;!?]\s*|[,;]?\s*\b(?:while|whereas|although|though|but|compared\s+(?:with|to)|versus|vs\.?)\b\s*/i)
+    let dellHas120 = false
+    let macbookHas120 = false
+    for (const clause of clauses) {
+      if (/\b120\s*hz\b/i.test(clause)) {
+        const hasDell = /dell(?:\s+xps)?/i.test(clause)
+        const hasMac = /macbook(?:\s+air)?/i.test(clause)
+        if (hasDell && !hasMac) dellHas120 = true
+        else if (hasMac && !hasDell) macbookHas120 = true
+        else if (hasDell && hasMac) {
+          const idx120 = clause.search(/\b120\s*hz\b/i)
+          const idxDell = clause.search(/dell(?:\s+xps)?/i)
+          const idxMac = clause.search(/macbook(?:\s+air)?/i)
+          if (Math.abs(idx120 - idxDell) < Math.abs(idx120 - idxMac)) dellHas120 = true
+          else macbookHas120 = true
+        } else {
+          dellHas120 = /dell(?:\s+xps)?[\s\S]{0,150}?\b120\s*hz\b/i.test(text)
+        }
+      }
+    }
+    const hasWrongVal = /\b(?:144|240)\s*Hz\b/i.test(text) && !/\b120\s*Hz\b/i.test(text)
+    return dellHas120 && !macbookHas120 && !hasWrongVal
+  }
+
+  assert('Case A: Standard 120Hz accepted', true, check120(textStandard))
+  passed++
+  assert('Case A: Space variation "120 Hz" accepted', true, check120(textSpace))
+  passed++
+  assert('Case A: Lowercase variation "120hz" accepted', true, check120(textLower))
+  passed++
+  assert('Case A: Lowercase space variation "120 hz" accepted', true, check120(textLowerSpace))
+  passed++
+
+  // Negative controls
+  const textWrongAttr = 'The MacBook Air lists a 120Hz refresh rate, while Dell XPS lists higher resolution.'
+  assert('Case A NC1: Wrong attribution (120Hz assigned to MacBook Air) rejected', false, check120(textWrongAttr))
+  passed++
+
+  const textWrongValue = 'The MacBook Air lists higher resolution, while Dell XPS lists a 144Hz refresh rate.'
+  assert('Case A NC2: Wrong refresh rate (144Hz) rejected', false, check120(textWrongValue))
+  passed++
+}
+
+// Case B: Verified Dell display evidence contains 120Hz, but analysis omits it
+{
+  const laptopComp = { criteria: ['Display Quality', 'Battery Life'] }
+  const laptopItems = [{ id: 1, name: 'MacBook Air' }, { id: 2, name: 'Dell XPS' }]
+  const laptopEv = [
+    { comparison_item_id: 1, item_name: 'MacBook Air', criterion: 'Display Quality', result: '13.6-inch Liquid Retina display with 2560x1664 native resolution', evidence_status: 'verified', source_name: 'Apple Specs' },
+    { comparison_item_id: 2, item_name: 'Dell XPS', criterion: 'Display Quality', result: '13.4-inch display with 1920x1200 FHD+ resolution at 120Hz refresh rate', evidence_status: 'verified', source_name: 'Dell Specs' },
+    { comparison_item_id: 1, item_name: 'MacBook Air', criterion: 'Battery Life', result: '18 hours', evidence_status: 'verified', source_name: 'Apple Specs' },
+    { comparison_item_id: 2, item_name: 'Dell XPS', criterion: 'Battery Life', result: '18 hours', evidence_status: 'verified', source_name: 'Dell Specs' },
+  ]
+
+  const ollamaOmits120Hz = 'Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life. The MacBook Air has a 13.6-inch screen, while the Dell XPS has a 13.4-inch screen.\n\nLIMITATION: Both laptops offer distinct trade-offs for student and portable computing.'
+
+  const sanitizedOmission = validateAndSanitizeAnalysis(ollamaOmits120Hz, laptopComp, laptopItems, laptopEv, [])
+  assert('Case B: Sanitizer injects neutral 120Hz display trade-off when omitted', true, sanitizedOmission.includes('120Hz refresh rate'))
+  passed++
+  assert('Case B: Sanitizer attributes 120Hz to Dell XPS', true, sanitizedOmission.includes('Dell XPS lists a 120Hz refresh rate'))
+  passed++
+  assert('Case B: Sanitizer does NOT claim overall display superiority', false, /\b(?:better|superior|best)\s+display\b/i.test(sanitizedOmission))
+  passed++
+  assert('Case B: Sanitized text has no narrative conflict', false, checkNarrativeConsistency(sanitizedOmission, laptopEv, laptopItems).hasConflict)
+  passed++
+}
+
 // ── summary ───────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════════════════════════')
 if (failed === 0) {

@@ -278,6 +278,45 @@ async function runTest1() {
   assertCheck('Test 1: Claims Classifier unverified count is 0', unverifiedClaims1.length === 0)
 }
 
+function checkDell120HzDisplayTradeoff(text) {
+  if (!text || typeof text !== 'string') return false
+  if (!/\b120\s*hz\b/i.test(text)) return false
+
+  // Split into clauses to verify item attribution without cross-clause contamination
+  const clauses = text.split(/[.;!?]\s*|[,;]?\s*\b(?:while|whereas|although|though|but|compared\s+(?:with|to)|versus|vs\.?)\b\s*/i)
+
+  let dellHas120 = false
+  let macbookHas120 = false
+
+  for (const clause of clauses) {
+    if (/\b120\s*hz\b/i.test(clause)) {
+      const hasDell = /dell(?:\s+xps)?/i.test(clause)
+      const hasMac = /macbook(?:\s+air)?/i.test(clause)
+
+      if (hasDell && !hasMac) {
+        dellHas120 = true
+      } else if (hasMac && !hasDell) {
+        macbookHas120 = true
+      } else if (hasDell && hasMac) {
+        const idx120 = clause.search(/\b120\s*hz\b/i)
+        const idxDell = clause.search(/dell(?:\s+xps)?/i)
+        const idxMac = clause.search(/macbook(?:\s+air)?/i)
+        if (Math.abs(idx120 - idxDell) < Math.abs(idx120 - idxMac)) {
+          dellHas120 = true
+        } else {
+          macbookHas120 = true
+        }
+      } else {
+        dellHas120 = /dell(?:\s+xps)?[\s\S]{0,150}?\b120\s*hz\b/i.test(text)
+      }
+    }
+  }
+
+  const hasWrongValue = /\b(?:144|240)\s*Hz\b/i.test(text) && !/\b120\s*Hz\b/i.test(text)
+
+  return dellHas120 && !macbookHas120 && !hasWrongValue
+}
+
 async function runTest2() {
   console.log('--- TEST 2: Natural-language comparison without explicit criteria ---')
   console.log('Prompt: "Which is better for a student, MacBook Air or Dell XPS?"')
@@ -315,9 +354,14 @@ async function runTest2() {
     'Test 2: Analysis includes portability trade-off (2.60 lbs vs 0.44 in)',
     res2.analysis.content.includes('2.60 pounds') && res2.analysis.content.includes('0.44-inch')
   )
+
+  const dell120HzTradeoff = checkDell120HzDisplayTradeoff(res2.analysis.content)
+  const ncWrongAttr = checkDell120HzDisplayTradeoff('The MacBook Air lists a 120Hz refresh rate, while Dell XPS lists higher resolution.') === false
+  const ncWrongValue = checkDell120HzDisplayTradeoff('The MacBook Air lists higher resolution, while Dell XPS lists a 144Hz refresh rate.') === false
+
   assertCheck(
     'Test 2: Analysis includes display refresh rate trade-off (120Hz)',
-    res2.analysis.content.includes('120Hz')
+    dell120HzTradeoff && ncWrongAttr && ncWrongValue
   )
   assertCheck(
     'Test 2: Analysis includes neutral performance statement',
