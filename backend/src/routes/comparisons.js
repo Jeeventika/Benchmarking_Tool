@@ -4,8 +4,64 @@ import { generateAndSaveAnalysis } from '../services/analysisService.js'
 import { gatherAndStoreEvidence } from '../services/evidenceGatheringService.js'
 import { parseNaturalPrompt } from '../services/naturalPromptParser.js'
 import { extractTextFromPdf } from '../services/pdfExtractor.js'
+import { generateExportReport } from '../services/analysisGenerationHelper.js'
 
 const router = Router()
+
+// GET /api/comparisons/:id/export — export benchmarking report
+router.get('/:id/export', async (req, res) => {
+  const { id } = req.params
+  const client = await pool.connect()
+  try {
+    const compRes = await client.query('SELECT * FROM comparisons WHERE id = $1', [id])
+    if (compRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Comparison not found' })
+    }
+    const itemsRes = await client.query('SELECT * FROM comparison_items WHERE comparison_id = $1 ORDER BY id', [id])
+    const evRes = await client.query(
+      `SELECT ci.name as item_name, e.criterion, e.result, e.source_name, e.source_url, e.evidence_status
+       FROM evidence e
+       JOIN comparison_items ci ON ci.id = e.comparison_item_id
+       WHERE ci.comparison_id = $1
+       ORDER BY ci.id, e.criterion`,
+      [id]
+    )
+    const recRes = await client.query(
+      `SELECT r.*, ci.name as recommended_item_name
+       FROM recommendations r
+       LEFT JOIN comparison_items ci ON ci.id = r.recommended_item_id
+       WHERE r.comparison_id = $1`,
+      [id]
+    )
+    const anRes = await client.query('SELECT * FROM analyses WHERE comparison_id = $1', [id])
+    const decRes = await client.query(
+      `SELECT d.*, ci.name as chosen_item_name
+       FROM decisions d
+       LEFT JOIN comparison_items ci ON ci.id = d.chosen_item_id
+       WHERE d.comparison_id = $1
+       ORDER BY d.created_at DESC
+       LIMIT 1`,
+      [id]
+    )
+
+    const report = generateExportReport(
+      compRes.rows[0],
+      itemsRes.rows,
+      evRes.rows,
+      anRes.rows[0] || null,
+      recRes.rows[0] || null,
+      decRes.rows[0] || null
+    )
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.send(report)
+  } catch (err) {
+    console.error('Failed to export comparison', { message: err.message })
+    res.status(500).json({ error: 'Could not export comparison' })
+  } finally {
+    client.release()
+  }
+})
 
 // GET /api/comparisons — list comparisons (skeleton: reads real table, returns empty until Phase 3 adds data)
 router.get('/', async (req, res) => {

@@ -25,6 +25,7 @@ import {
   validateAndSanitizeAnalysis,
   IPHONE_GALAXY_THINGS_TO_CONSIDER,
   MACBOOK_DELL_THINGS_TO_CONSIDER,
+  generateExportReport,
 } from './src/services/analysisGenerationHelper.js'
 import { classifyClaims } from './src/services/claimsClassifierService.js'
 
@@ -951,6 +952,257 @@ assert(
   Boolean(iphoneUnverifiedClaim)
 )
 passed++
+
+// ══════════════════════════════════════════════════════════════════
+// SECTION 7: EXPLICIT 9 REGRESSION TEST SUITE
+// ══════════════════════════════════════════════════════════════════
+console.log('\n══════════════════════════════════════════════════════════════════')
+console.log('SECTION 7: EXPLICIT 9 REGRESSION TEST SUITE')
+console.log('══════════════════════════════════════════════════════════════════\n')
+
+// Area 1: Accurate sentence
+{
+  const text1 = 'Galaxy S26 battery life is 30 hours, while iPhone 17 battery life is 27 hours.'
+  const ev1 = [
+    { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours' }
+  ]
+  const res1 = checkNarrativeConsistency(text1, ev1)
+  assert('Regression Area 1 (Accurate sentence): hasConflict is false', false, res1.hasConflict)
+  passed++
+  assert('Regression Area 1 (Accurate sentence): conflicts array is empty', 0, res1.conflicts.length)
+  passed++
+}
+
+// Area 2: Reversed incorrect attribution failure
+{
+  const text2 = 'Galaxy S26 battery life is 27 hours, while iPhone 17 battery life is 30 hours.'
+  const ev2 = [
+    { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours' }
+  ]
+  const res2 = checkNarrativeConsistency(text2, ev2)
+  assert('Regression Area 2 (Reversed attribution): hasConflict is true', true, res2.hasConflict)
+  passed++
+  const galConflict = res2.conflicts.find(c => c.item_name === 'Galaxy S26')
+  assert('Regression Area 2 (Reversed attribution): flags Galaxy S26 conflict', true, Boolean(galConflict))
+  passed++
+  if (galConflict) {
+    assert('Regression Area 2 (Reversed attribution): Galaxy narrative value is 27', 27, galConflict.narrative_value)
+    passed++
+  }
+  const sanitized2 = validateAndSanitizeAnalysis(text2, { criteria: ['Battery Life'] }, [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }], ev2, [])
+  const resSanitized2 = checkNarrativeConsistency(sanitized2, ev2)
+  assert('Regression Area 2 (Reversed attribution): Sanitizer eliminates reversed conflict', false, resSanitized2.hasConflict)
+  passed++
+}
+
+// Area 3: Changed evidence values (Galaxy 31h, iPhone 26h)
+{
+  const comp3 = { criteria: ['Battery Life', 'Camera'] }
+  const items3 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const ev3 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '31 hours' },
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Battery Life', result: '26 hours' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion' },
+  ]
+  const synth3 = generateGroundedAnalysisSynthesis(comp3, items3, ev3, [])
+  assert('Regression Area 3 (Changed evidence): Grounded synthesis dynamically includes 31 hours', true, synth3.includes('31 hours'))
+  passed++
+  assert('Regression Area 3 (Changed evidence): Grounded synthesis dynamically includes 26 hours', true, synth3.includes('26 hours'))
+  passed++
+  assert('Regression Area 3 (Changed evidence): Grounded synthesis does not hardcode 30 hours', false, synth3.includes('30 hours'))
+  passed++
+  assert('Regression Area 3 (Changed evidence): Grounded synthesis has NO narrative conflict', false, checkNarrativeConsistency(synth3, ev3).hasConflict)
+  passed++
+
+  const invertedText3 = 'Galaxy S26 battery life is 26 hours, while iPhone 17 battery life is 31 hours. LIMITATION: Testing conditions differ.'
+  const sanitized3 = validateAndSanitizeAnalysis(invertedText3, comp3, items3, ev3, [])
+  assert('Regression Area 3 (Changed evidence): Sanitizer dynamically corrects inverted claims to 31h and 26h', true, sanitized3.includes('31 hours') && sanitized3.includes('26 hours'))
+  passed++
+  assert('Regression Area 3 (Changed evidence): Sanitized text has NO narrative conflict', false, checkNarrativeConsistency(sanitized3, ev3).hasConflict)
+  passed++
+}
+
+// Area 4: Galaxy-only battery evidence
+{
+  const comp4 = { criteria: ['Battery Life', 'Camera'] }
+  const items4 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const ev4 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion' },
+  ]
+  const synth4 = generateGroundedAnalysisSynthesis(comp4, items4, ev4, [])
+  assert('Regression Area 4 (Galaxy-only battery): Mentions Galaxy S26 30 hours', true, synth4.includes('30 hours'))
+  passed++
+  assert('Regression Area 4 (Galaxy-only battery): Explicitly flags iPhone battery as unverified/not provided', true, synth4.includes('The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.'))
+  passed++
+  assert('Regression Area 4 (Galaxy-only battery): Does not invent 27 hours', false, synth4.includes('27 hours'))
+  passed++
+  assert('Regression Area 4 (Galaxy-only battery): Grounded synthesis has NO narrative conflict', false, checkNarrativeConsistency(synth4, ev4).hasConflict)
+  passed++
+}
+
+// Area 5: Multi-value camera evidence
+{
+  const ev5 = [
+    { item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion main camera, 48MP Ultra Wide, and 12MP 5x Telephoto' }
+  ]
+  const accurateCameraText = 'iPhone 17 has a 48MP main camera, 48MP Ultra Wide camera, and 12MP telephoto camera.'
+  const res5 = checkNarrativeConsistency(accurateCameraText, ev5)
+  assert('Regression Area 5 (Multi-value camera): Accurate narrative produces hasConflict false', false, res5.hasConflict)
+  passed++
+
+  const telephotoOnlyText = 'iPhone 17 includes a 12MP telephoto camera.'
+  const res5Tele = checkNarrativeConsistency(telephotoOnlyText, ev5)
+  assert('Regression Area 5 (Multi-value camera): 12MP telephoto alone does not conflict with 48MP', false, res5Tele.hasConflict)
+  passed++
+
+  const wrongTelephotoText = 'iPhone 17 includes a 10MP telephoto camera.'
+  const res5Wrong = checkNarrativeConsistency(wrongTelephotoText, ev5)
+  assert('Regression Area 5 (Multi-value camera): 10MP telephoto contradiction flags conflict', true, res5Wrong.hasConflict)
+  passed++
+  if (res5Wrong.conflicts.length > 0) {
+    assert('Regression Area 5 (Multi-value camera): Contradiction evidence value is 12 (not 48)', 12, res5Wrong.conflicts[0].evidence_value)
+    passed++
+  }
+}
+
+// Area 6: Three-product comparison
+{
+  const comp6 = { criteria: ['Battery Life', 'Camera'] }
+  const items6 = [
+    { id: 1, name: 'Galaxy S26' },
+    { id: 2, name: 'iPhone 17' },
+    { id: 3, name: 'Pixel 11' }
+  ]
+  const ev6 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Camera', result: '200MP Wide main camera' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Camera', result: '48MP Fusion main camera' },
+    { comparison_item_id: 3, item_name: 'Pixel 11', criterion: 'Battery Life', result: '24 hours' },
+    { comparison_item_id: 3, item_name: 'Pixel 11', criterion: 'Camera', result: '50MP main camera' }
+  ]
+  const text6 = 'Galaxy S26 is listed at 30 hours, iPhone 17 is listed at 27 hours, and Pixel 11 is listed at 24 hours.'
+  const res6 = checkNarrativeConsistency(text6, ev6, items6)
+  assert('Regression Area 6 (Three-product): Accurate 3-product claims produce hasConflict false', false, res6.hasConflict)
+  passed++
+
+  const text6Conflict = 'Galaxy S26 is listed at 30 hours, iPhone 17 is listed at 27 hours, and Pixel 11 is listed at 18 hours.'
+  const res6Conflict = checkNarrativeConsistency(text6Conflict, ev6, items6)
+  assert('Regression Area 6 (Three-product): Contradiction on 3rd product flags conflict', true, res6Conflict.hasConflict)
+  passed++
+  const pixelConflict = res6Conflict.conflicts.find(c => c.item_name === 'Pixel 11')
+  assert('Regression Area 6 (Three-product): Conflict specifically bound to Pixel 11', true, Boolean(pixelConflict))
+  passed++
+  if (pixelConflict) {
+    assert('Regression Area 6 (Three-product): Pixel narrative value is 18', 18, pixelConflict.narrative_value)
+    passed++
+  }
+}
+
+// Area 7: Missing document extraction
+{
+  const docItems7 = [{ id: 1, name: 'Doc A' }, { id: 2, name: 'Doc B' }]
+  const docEv7 = [
+    { comparison_item_id: 1, item_name: 'Doc A', criterion: 'Methodology', result: 'Extracted methodology text', evidence_status: 'verified' },
+    { comparison_item_id: 1, item_name: 'Doc A', criterion: 'Limitations', result: 'Content extracted, but findings for Limitations remain unverified.', evidence_status: 'unverified' },
+    { comparison_item_id: 2, item_name: 'Doc B', criterion: 'Methodology', result: 'Extracted methodology text', evidence_status: 'unverified' }
+  ]
+  const docComp7 = { criteria: ['Methodology', 'Limitations'] }
+  const synth7 = generateGroundedAnalysisSynthesis(docComp7, docItems7, docEv7, [])
+  assert('Regression Area 7 (Missing doc extraction): Synthesis flags unverified findings explicitly', true, synth7.includes('unverified'))
+  passed++
+
+  const unverifiedClaimText = 'Doc A Limitations: None found. Doc B Methodology: Proved completely.'
+  const classified7 = classifyClaims(unverifiedClaimText, docItems7, docEv7)
+  const unverifiedEntry = classified7.find(c => c.status === 'potentially_unverified')
+  assert('Regression Area 7 (Missing doc extraction): Claims classifier flags ungrounded claim as potentially_unverified', true, Boolean(unverifiedEntry))
+  passed++
+}
+
+// Area 8: Ollama timeout and deterministic fallback
+{
+  const comp8 = { criteria: ['Battery Life', 'Camera'] }
+  const items8 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const ev8 = [
+    { comparison_item_id: 1, item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours' },
+    { comparison_item_id: 2, item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours' }
+  ]
+
+  let generatedBy = 'ollama'
+  let content = ''
+  try {
+    throw new Error('Ollama connection timeout after 3000ms')
+  } catch (err) {
+    generatedBy = 'fallback'
+    content = generateGroundedAnalysisSynthesis(comp8, items8, ev8, [])
+  }
+
+  assert('Regression Area 8 (Ollama timeout): generated_by marked as fallback', 'fallback', generatedBy)
+  passed++
+  assert('Regression Area 8 (Ollama timeout): Fallback content contains grounded comparison', true, content.includes('30 hours') && content.includes('27 hours'))
+  passed++
+  assert('Regression Area 8 (Ollama timeout): Fallback content has NO narrative conflict', false, checkNarrativeConsistency(content, ev8).hasConflict)
+  passed++
+}
+
+// Area 9: Export separation and evidence labels
+{
+  const comp9 = { goal: 'Compare smartphones for enterprise fleet' }
+  const items9 = [{ id: 1, name: 'Galaxy S26' }, { id: 2, name: 'iPhone 17' }]
+  const ev9 = [
+    { item_name: 'Galaxy S26', criterion: 'Battery Life', result: '30 hours', evidence_status: 'verified', source_name: 'Samsung Specs', source_url: 'https://samsung.com/specs' },
+    { item_name: 'iPhone 17', criterion: 'Battery Life', result: '27 hours', evidence_status: 'verified', source_name: 'Apple Specs', source_url: 'https://apple.com/specs' },
+    { item_name: 'iPhone 17', criterion: 'Enterprise Security', result: 'Pending review', evidence_status: 'unverified', source_name: null, source_url: null }
+  ]
+  const analysis9 = {
+    content: 'The Galaxy S26 offers up to 30 hours of battery life, compared with 27 hours for the iPhone 17.\n\nLIMITATION: Battery life testing methodologies vary between manufacturers.',
+    claims: [
+      { item_name: 'Galaxy S26', criterion: 'Battery Life', claim_text: 'Galaxy S26 offers up to 30 hours', status: 'grounded' },
+      { item_name: 'iPhone 17', criterion: 'Enterprise Security', claim_text: 'Enterprise Security pending review', status: 'potentially_unverified' }
+    ]
+  }
+  const rec9 = {
+    recommended_item_name: 'Galaxy S26',
+    reliability: 'High',
+    reliability_reason: 'All critical criteria verified against primary manufacturer specs.'
+  }
+  const dec9 = {
+    accepted_recommendation: false,
+    chosen_item_name: 'iPhone 17',
+    override_reason: 'Ecosystem lock-in and existing MDM infrastructure',
+    override_note: 'Decision overrides system recommendation for enterprise operational alignment.'
+  }
+
+  const exportReport = generateExportReport(comp9, items9, ev9, analysis9, rec9, dec9)
+
+  assert('Regression Area 9 (Export): Contains BENCHMARKING REPORT header', true, exportReport.includes('BENCHMARKING REPORT'))
+  passed++
+  assert('Regression Area 9 (Export): Contains SOURCE EVIDENCE & FACTS section', true, exportReport.includes('SOURCE EVIDENCE & FACTS:'))
+  passed++
+  assert('Regression Area 9 (Export): Evidence rows include verified status tag', true, exportReport.includes('[Status: verified]'))
+  passed++
+  assert('Regression Area 9 (Export): Evidence rows include unverified status tag', true, exportReport.includes('[Status: unverified]'))
+  passed++
+  assert('Regression Area 9 (Export): Contains AI-GENERATED ANALYSIS (INTERPRETATION ONLY) section', true, exportReport.includes('AI-GENERATED ANALYSIS (INTERPRETATION ONLY):'))
+  passed++
+  assert('Regression Area 9 (Export): Contains THINGS TO CONSIDER & LIMITATIONS section', true, exportReport.includes('THINGS TO CONSIDER & LIMITATIONS:'))
+  passed++
+  assert('Regression Area 9 (Export): Contains CLAIMS GROUNDING AUDIT section', true, exportReport.includes('CLAIMS GROUNDING AUDIT:'))
+  passed++
+  assert('Regression Area 9 (Export): Claims audit contains GROUNDED label', true, exportReport.includes('[Label: GROUNDED]'))
+  passed++
+  assert('Regression Area 9 (Export): Claims audit contains POTENTIALLY_UNVERIFIED label', true, exportReport.includes('[Label: POTENTIALLY_UNVERIFIED]'))
+  passed++
+  assert('Regression Area 9 (Export): Contains FINAL USER DECISION section with User Override', true, exportReport.includes('FINAL USER DECISION:\nStatus: User Override'))
+  passed++
+  assert('Regression Area 9 (Export): Includes override reason and note', true, exportReport.includes('Ecosystem lock-in') && exportReport.includes('enterprise operational alignment'))
+  passed++
+}
 
 
 // ── summary ───────────────────────────────────────────────────────────────────

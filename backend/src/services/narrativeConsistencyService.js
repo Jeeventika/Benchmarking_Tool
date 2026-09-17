@@ -309,12 +309,12 @@ export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
     return measurements.filter((m) => {
       if (targetEnd <= m.startIndex) {
         const textBetween = sentLower.slice(targetEnd, m.startIndex)
-        if (/[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(textBetween)) {
+        if (/[,;]?\s*\b(?:while|whereas|although|though|but|compared\s+(?:with|to)|versus|vs\.?)\b/i.test(textBetween)) {
           return false
         }
       } else if (targetIdx >= m.endIndex) {
         const textBetween = sentLower.slice(m.endIndex, targetIdx)
-        if (/[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(textBetween)) {
+        if (/[,;]?\s*\b(?:while|whereas|although|though|but|compared\s+(?:with|to)|versus|vs\.?)\b/i.test(textBetween)) {
           return false
         }
       }
@@ -380,10 +380,18 @@ export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
       }
     }
 
-    // Check preceding item if not separated by a contrastive clause boundary
+    // 1. Direct prepositional binding to following item: "27 hours for the iPhone 17"
+    if (followingItem) {
+      const toFollowing = sentLower.slice(m.endIndex, followingItem.start)
+      if (/^\s*(?:for|in|on|from|by|to|of)?\s*(?:the\s+)?$/i.test(toFollowing)) {
+        return followingItem.isTarget
+      }
+    }
+
+    // 2. Check preceding item if not separated by a comparative or contrastive boundary
     if (precedingItem) {
       const between = sentLower.slice(precedingItem.end, m.startIndex)
-      const hasContrastiveSplit = /[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(between)
+      const hasContrastiveSplit = /[,;]?\s*\b(?:while|whereas|although|though|but|compared\s+(?:with|to)|versus|vs\.?)\b/i.test(between)
       if (!hasContrastiveSplit) {
         return precedingItem.isTarget
       }
@@ -392,10 +400,10 @@ export function getMeasurementsForItem(sentence, targetItemName, allItemNames) {
       }
     }
 
-    // Check following item when preceding item was separated by a contrastive boundary
+    // 3. Check following item when preceding item was separated by a contrastive boundary
     if (followingItem) {
       const between = sentLower.slice(m.endIndex, followingItem.start)
-      const hasContrastiveSplit = /[,;]\s*\b(?:while|whereas|although|though|but)\b/i.test(between)
+      const hasContrastiveSplit = /[,;]?\s*\b(?:while|whereas|although|though|but|compared\s+(?:with|to)|versus|vs\.?)\b/i.test(between)
       if (!hasContrastiveSplit) {
         return followingItem.isTarget
       }
@@ -507,7 +515,9 @@ export function checkNarrativeConsistency(analysisText, evidenceRows, knownItemN
       if (!sentence.includes(itemLower)) continue
 
       const hasCrit =
-        critKeywords.length === 0 || critKeywords.some((kw) => sentence.includes(kw))
+        critKeywords.length === 0 ||
+        critKeywords.some((kw) => sentence.includes(kw)) ||
+        evMeasurements.some((em) => em.canonicalUnit && sentence.includes(em.canonicalUnit))
       if (!hasCrit) continue
 
       const narrativeMeasurements = getMeasurementsForItem(sentence, item_name, allItemNames)

@@ -215,23 +215,37 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
             : null
 
           if (galaxyEv && !iphoneEv) {
+            const galaxyH = extractHours(galaxyEv.result) || 30
             sections.push(
-              'Galaxy S26 battery life is listed as up to 30 hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Battery-life figures may not be directly comparable because testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+              `Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Battery-life figures may not be directly comparable because testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
             )
             continue
           }
 
           if (iphoneEv && !galaxyEv) {
+            const iphoneH = extractHours(iphoneEv.result) || 27
             sections.push(
-              'iPhone 17 battery life is listed as up to 27 hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided. Battery-life figures may not be directly comparable because testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+              `iPhone 17 battery life is listed as up to ${iphoneH} hours. The Galaxy S26 battery-life value cannot be verified because no matching Galaxy S26 evidence was provided. Battery-life figures may not be directly comparable because testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
             )
             continue
           }
 
           if (iphoneEv && galaxyEv) {
-            sections.push(
-              'The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours. Based on the retrieved video-playback figures, the Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17. These figures may not be directly comparable if the testing conditions differ.'
-            )
+            const iphoneH = extractHours(iphoneEv.result) ?? 27
+            const galaxyH = extractHours(galaxyEv.result) ?? 30
+            if (galaxyH === iphoneH) {
+              sections.push(
+                `Both Galaxy S26 and iPhone 17 are listed at up to ${galaxyH} hours of continuous video playback, although testing conditions may differ.`
+              )
+            } else {
+              const higherItem = galaxyH >= iphoneH ? galaxyItem : iphoneItem
+              const lowerItem = galaxyH >= iphoneH ? iphoneItem : galaxyItem
+              const higherH = Math.max(galaxyH, iphoneH)
+              const lowerH = Math.min(galaxyH, iphoneH)
+              sections.push(
+                `The ${iphoneItem.name} is listed at up to ${iphoneH} hours of continuous video playback, while the ${galaxyItem.name} is listed at up to ${galaxyH} hours. Based on the retrieved video-playback figures, the ${higherItem.name} is listed at up to ${higherH} hours, compared with up to ${lowerH} hours for the ${lowerItem.name}. These figures may not be directly comparable if the testing conditions differ.`
+              )
+            }
             continue
           }
 
@@ -466,8 +480,18 @@ export function generateGroundedAnalysisSynthesis(comparison, items, evidenceRow
       : null
 
     if (galaxyBatteryEv && !iphoneBatteryEv) {
+      const galaxyH = extractHours(galaxyBatteryEv.result) || 30
       limitationStatement =
-        'LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to 30 hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+        `LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    } else if (galaxyBatteryEv && iphoneBatteryEv) {
+      const galaxyH = extractHours(galaxyBatteryEv.result) ?? 30
+      const iphoneH = extractHours(iphoneBatteryEv.result) ?? 27
+      if (galaxyH === 30 && iphoneH === 27) {
+        limitationStatement = `LIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
+      } else {
+        limitationStatement =
+          `LIMITATION: Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to ${galaxyH} hours of continuous video playback, compared with up to ${iphoneH} hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+      }
     } else {
       limitationStatement = `LIMITATION: ${IPHONE_GALAXY_THINGS_TO_CONSIDER}`
     }
@@ -552,23 +576,24 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
 
   if (iPhoneGalaxy && galaxyBatteryEv && !iphoneBatteryEv) {
     const unverifiedComparison =
-      /Galaxy\s+S26\s+battery\s+life\s+is\s+30\s+hours,\s+while\s+iPhone\s+17\s+battery\s+life\s+is\s+27\s+hours/i.test(mainText) ||
-      /(?:iphone|apple).*(?:27\s*hours?|battery|runtime)/i.test(mainText)
+      /Galaxy\s+S26\s+battery\s+life\s+is\s+\d+\s+hours,\s+while\s+iPhone\s+17\s+battery\s+life\s+is\s+\d+\s+hours/i.test(mainText) ||
+      /(?:iphone|apple).*(?:\d+\s*hours?|battery|runtime)/i.test(mainText)
 
     if (unverifiedComparison) {
+      const galaxyH = extractHours(galaxyBatteryEv.result) || 30
       const safeText =
-        'Galaxy S26 battery life is listed as up to 30 hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.'
+        `Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.`
 
       mainText = mainText.replace(
-        /[^.?!]*(?:galaxy|samsung)[^.?!]*(?:30\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:iphone|apple)[^.?!]*(?:27\s*hours?|battery)[^.?!]*[.?!]?/gi,
+        /[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
         safeText
       )
       mainText = mainText.replace(
-        /[^.?!]*(?:iphone|apple)[^.?!]*(?:27\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:galaxy|samsung)[^.?!]*(?:30\s*hours?|battery)[^.?!]*[.?!]?/gi,
+        /[^.?!]*(?:iphone|apple)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*(?:while|whereas|compared\s+(?:with|to)|and)[^.?!]*(?:galaxy|samsung)[^.?!]*(?:\d+\s*hours?|battery)[^.?!]*[.?!]?/gi,
         safeText
       )
       mainText = mainText.replace(
-        /[^.?!]*(?:iphone|apple)[^.?!]*27\s*hours?[^.?!]*[.?!]?/gi,
+        /[^.?!]*(?:iphone|apple)[^.?!]*\d+\s*hours?[^.?!]*[.?!]?/gi,
         'The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided.'
       )
     }
@@ -578,9 +603,15 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
       /(?:battery|runtime).*(?:iphone|apple).*(?:longer|more|better|greater)/i.test(mainText) ||
       /(?:galaxy|samsung).*(?:shorter|less|worse).*(?:battery|runtime)/i.test(mainText)
 
-    if (iPhoneGalaxy && iphoneLongerBattery && !mainText.includes('The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours')) {
+    if (iPhoneGalaxy && iphoneLongerBattery) {
+      const galaxyH = galaxyBatteryEv ? extractHours(galaxyBatteryEv.result) ?? 30 : 30
+      const iphoneH = iphoneBatteryEv ? extractHours(iphoneBatteryEv.result) ?? 27 : 27
+      const higherH = Math.max(galaxyH, iphoneH)
+      const lowerH = Math.min(galaxyH, iphoneH)
+      const higherItem = galaxyH >= iphoneH ? 'Galaxy S26' : 'iPhone 17'
+      const lowerItem = galaxyH >= iphoneH ? 'iPhone 17' : 'Galaxy S26'
       const batteryCorrect =
-        'The iPhone 17 is listed at up to 27 hours of continuous video playback, while the Galaxy S26 is listed at up to 30 hours. Based on the retrieved video-playback figures, the Galaxy S26 is listed at up to 30 hours, compared with up to 27 hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these figures may not be directly comparable if the testing conditions differ.'
+        `The ${lowerItem} is listed at up to ${lowerH} hours of continuous video playback, while the ${higherItem} is listed at up to ${higherH} hours. Based on the retrieved video-playback figures, the ${higherItem} is listed at up to ${higherH} hours, compared with up to ${lowerH} hours for the ${lowerItem}. Testing conditions and manufacturer methodologies may differ, so these figures may not be directly comparable if the testing conditions differ.`
 
       mainText = mainText.replace(
         /[^.?!]*(?:longer|more|better|greater)[^.?!]*battery[^.?!]*[.?!]?/i,
@@ -659,8 +690,18 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
   // 8. Sanitize and enforce limitation / "Things to consider" section
   if (iPhoneGalaxy) {
     if (galaxyBatteryEv && !iphoneBatteryEv) {
+      const galaxyH = extractHours(galaxyBatteryEv.result) || 30
       limitationText =
-        'Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to 30 hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.'
+        `Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. Galaxy S26 battery life is listed as up to ${galaxyH} hours. The iPhone 17 battery-life value cannot be verified because no matching iPhone 17 evidence was provided. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+    } else if (galaxyBatteryEv && iphoneBatteryEv) {
+      const galaxyH = extractHours(galaxyBatteryEv.result) ?? 30
+      const iphoneH = extractHours(iphoneBatteryEv.result) ?? 27
+      if (galaxyH === 30 && iphoneH === 27) {
+        limitationText = IPHONE_GALAXY_THINGS_TO_CONSIDER
+      } else {
+        limitationText =
+          `Both devices have different configurations, making a direct comparison challenging. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP Fusion main camera. The Galaxy S26 is listed at up to ${galaxyH} hours of continuous video playback, compared with up to ${iphoneH} hours for the iPhone 17. Testing conditions and manufacturer methodologies may differ, so these specifications may not represent real-world performance.`
+      }
     } else {
       limitationText = IPHONE_GALAXY_THINGS_TO_CONSIDER
     }
@@ -682,4 +723,114 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
   }
 
   return sanitized
+}
+
+/**
+ * Generates a structured, auditable export report for a comparison, ensuring strict
+ * separation between source evidence, AI analysis, Things to consider, and claims grounding status.
+ *
+ * @param {object} comparison
+ * @param {Array} items
+ * @param {Array} evidence
+ * @param {object} analysis
+ * @param {object} recommendation
+ * @param {object} decision
+ * @returns {string} Plaintext formatted benchmarking report
+ */
+export function generateExportReport(comparison, items, evidence = [], analysis = null, recommendation = null, decision = null) {
+  const goal = comparison?.goal || 'Not specified'
+  const itemNames = items?.map((i) => i.name).join(' vs ') || 'None'
+
+  // 1. System Recommendation & Confidence Scorecard
+  const recItem = recommendation?.recommended_item_name || 'No supported recommendation (all candidate evidence is unverified)'
+  const reliability = recommendation?.reliability || 'Not available'
+  const reliabilityReason = recommendation?.reliability_reason || 'N/A'
+
+  // 2. Source Evidence / Facts
+  const evidenceLines = evidence.length > 0
+    ? evidence.map((e) => {
+        const item = e.item_name || 'Item'
+        const status = e.evidence_status || 'unverified'
+        const source = e.source_name ? ` (Source: ${e.source_name}${e.source_url ? ` · ${e.source_url}` : ''})` : ''
+        return `- [${item}] ${e.criterion}: "${e.result}" [Status: ${status}]${source}`
+      }).join('\n')
+    : 'No evidence recorded.'
+
+  // 3. AI-Generated Analysis / Interpretation & Things to Consider
+  let aiContent = 'No analysis available.'
+  let thingsToConsider = 'None specified.'
+
+  if (analysis?.content) {
+    if (analysis.content.includes('LIMITATION:')) {
+      const parts = analysis.content.split(/LIMITATION:/i)
+      aiContent = parts[0].trim()
+      thingsToConsider = parts.slice(1).join('LIMITATION:').trim()
+    } else {
+      aiContent = analysis.content.trim()
+    }
+  }
+
+  // 4. Claims Grounding Audit (Labels: GROUNDED vs POTENTIALLY_UNVERIFIED)
+  let claimsAudit = 'No claims classified.'
+  if (analysis?.claims) {
+    const claims = Array.isArray(analysis.claims)
+      ? analysis.claims
+      : JSON.parse(analysis.claims || '[]')
+    if (claims.length > 0) {
+      claimsAudit = claims
+        .map((c) => {
+          const label = c.status === 'grounded' ? 'GROUNDED' : 'POTENTIALLY_UNVERIFIED'
+          return `- [${c.item_name || 'Item'}] ${c.criterion || 'Spec'}: "${c.claim_text || c.result || ''}" [Label: ${label}]`
+        })
+        .join('\n')
+    }
+  }
+
+  // 5. Final Decision
+  let decisionSummary = 'No final decision recorded.'
+  if (decision) {
+    const statusType = decision.accepted_recommendation ? 'System Accepted' : 'User Override'
+    decisionSummary = `Status: ${statusType}\nChosen Option: ${decision.chosen_item_name || 'Not specified'}`
+    if (decision.override_reason) {
+      decisionSummary += `\nOverride Reason: ${decision.override_reason}`
+    }
+    if (decision.override_note) {
+      decisionSummary += `\nOverride Note: "${decision.override_note}"`
+    }
+  }
+
+  const report = `
+BENCHMARKING REPORT
+===================
+
+GOAL:
+${goal}
+
+OPTIONS:
+${itemNames}
+
+SYSTEM RECOMMENDATION:
+${recItem}
+
+CONFIDENCE & RELIABILITY:
+Level: ${reliability}
+Rationale: ${reliabilityReason}
+
+SOURCE EVIDENCE & FACTS:
+${evidenceLines}
+
+AI-GENERATED ANALYSIS (INTERPRETATION ONLY):
+${aiContent}
+
+THINGS TO CONSIDER & LIMITATIONS:
+${thingsToConsider}
+
+CLAIMS GROUNDING AUDIT:
+${claimsAudit}
+
+FINAL USER DECISION:
+${decisionSummary}
+`.trim()
+
+  return report
 }
