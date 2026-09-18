@@ -73,7 +73,7 @@ export function buildAnalysisPrompt(comparison, items, evidenceRows) {
   if (iPhoneGalaxy) {
     extraNeutralityRules = `\n5. Do NOT state or suggest that the iPhone 17 has a higher megapixel count. The Galaxy S26 lists a 200MP main camera, while the iPhone 17 lists a 48MP main camera.
 6. Do NOT state or suggest that the iPhone 17 has longer battery life. The Galaxy S26 is listed at up to 30 hours, while the iPhone 17 is listed at up to 27 hours.
-7. Do NOT compare megapixels as proof of camera quality.
+7. Do NOT compare megapixels as proof of camera quality. Explicitly state that camera quality cannot be determined from megapixel counts and specifications alone.
 8. Note that iPhone 17 starts at $999 for 128GB baseline storage while Galaxy S26 starts at $1,299.99 for 256GB baseline storage.`
   } else if (macBookDell) {
     extraNeutralityRules = `\n5. For BATTERY: Both MacBook Air and Dell XPS are listed at up to 18 hours of battery life. Do NOT claim one lasts longer or has better battery life. State that both are listed at up to 18 hours, although testing conditions may differ.
@@ -451,6 +451,29 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
       /[^.?!]*(?:higher|more|greater)[^.?!]*(?:megapixel|mp\b)[^.?!]*[.?!]?/i,
       cameraNeutral
     )
+  }
+
+  // 2b. Ensure camera neutrality statement is present when Camera criterion is evaluated
+  const criteria = Array.isArray(comparison?.criteria)
+    ? comparison.criteria
+    : JSON.parse(comparison?.criteria || '[]')
+
+  const hasCameraCriterion =
+    criteria.some((c) => /camera|photo/i.test(c)) ||
+    (evidenceRows && evidenceRows.some((e) => /camera|photo/i.test(e.criterion)))
+
+  const cameraNeutralStatement =
+    'Camera quality cannot be determined from megapixel counts and specifications alone.'
+
+  if (hasCameraCriterion && !mainText.includes('Camera quality cannot be determined from megapixel counts and specifications alone')) {
+    if (/([^.?!]*(?:camera|photo|megapixel|sensor|\bmp\b)[^.?!]*)([.?!])/i.test(mainText)) {
+      mainText = mainText.replace(
+        /([^.?!]*(?:camera|photo|megapixel|sensor|\bmp\b)[^.?!]*)([.?!])/i,
+        `$1$2 ${cameraNeutralStatement}`
+      )
+    } else {
+      mainText = `${cameraNeutralStatement} ${mainText.trim()}`
+    }
   }
 
   // 3. Check for incorrect iPhone/Galaxy battery claim (iPhone longer / better battery)
