@@ -612,6 +612,29 @@ export function validateAndSanitizeAnalysis(text, comparison, items, evidenceRow
     )
   }
 
+  // 2b. Ensure camera neutrality statement is present when Camera criterion is evaluated
+  const criteria = Array.isArray(comparison?.criteria)
+    ? comparison.criteria
+    : JSON.parse(comparison?.criteria || '[]')
+
+  const hasCameraCriterion =
+    criteria.some((c) => /camera|photo/i.test(c)) ||
+    (evidenceRows && evidenceRows.some((e) => /camera|photo/i.test(e.criterion)))
+
+  const cameraNeutralStatement =
+    'Camera quality cannot be determined from megapixel counts and specifications alone.'
+
+  if (hasCameraCriterion && !mainText.includes('Camera quality cannot be determined from megapixel counts and specifications alone')) {
+    if (/([^.?!]*(?:camera|photo|megapixel|sensor|\bmp\b)[^.?!]*)([.?!])/i.test(mainText)) {
+      mainText = mainText.replace(
+        /([^.?!]*(?:camera|photo|megapixel|sensor|\bmp\b)[^.?!]*)([.?!])/i,
+        `$1$2 ${cameraNeutralStatement}`
+      )
+    } else {
+      mainText = `${cameraNeutralStatement} ${mainText.trim()}`
+    }
+  }
+
   // 3. Check for incorrect iPhone/Galaxy battery claim (iPhone longer / better battery or missing evidence attribution)
   const iphoneItem = items.find((i) => /iphone/i.test(i.name))
   const galaxyItem = items.find((i) => /galaxy/i.test(i.name))
